@@ -10,8 +10,8 @@
 <header class="top">
   <div class="logo">🎴 Anime <b>Boosters</b></div>
   <nav>
-    <button data-tab="shop" class="on">Boutique</button>
-    <button data-tab="album">Collection</button>
+    <button data-tab="shop" class="on">Boosters</button>
+    <button data-tab="binder">Classeur</button>
     <button data-tab="stats">Stats</button>
   </nav>
   <div class="wallet"><span id="coins">0</span> 🪙</div>
@@ -19,40 +19,43 @@
 
 <main>
   <section id="tab-shop" class="tab on">
-    <div class="free">
-      <div>
-        <h2>Booster gratuit</h2>
-        <p id="free-txt">…</p>
+    <div class="infinite" id="infinite">
+      <div class="inf-txt">
+        <div class="inf-t">♾️ Pack Infini</div>
+        <div class="inf-d">Gratuit, sans limite. Ouvre autant de packs que tu veux.</div>
       </div>
-      <button id="free-btn" class="btn gold">Ouvrir</button>
+      <button class="btn gold big">Ouvrir</button>
     </div>
-    <div class="free daily">
-      <div>
-        <h2>Cadeau du jour</h2>
-        <p id="daily-txt">…</p>
+    <div class="row2">
+      <div class="free">
+        <div><h2>Booster gratuit</h2><p id="free-txt">…</p></div>
+        <button id="free-btn" class="btn">Ouvrir</button>
       </div>
-      <button id="daily-btn" class="btn">Récupérer</button>
+      <div class="free">
+        <div><h2>Cadeau du jour</h2><p id="daily-txt">…</p></div>
+        <button id="daily-btn" class="btn">Récupérer</button>
+      </div>
     </div>
     <h2 class="sec">Boosters</h2>
     <div id="packs" class="packs"></div>
-    <h2 class="sec">Boosters par animé <small>5 cartes d'un seul animé</small></h2>
+    <h2 class="sec">Boosters par animé <small id="anime-count"></small></h2>
     <input id="anime-search" class="search" placeholder="Chercher un animé…">
     <div id="anime-packs" class="packs small"></div>
+    <button id="anime-more" class="btn more">Voir plus</button>
   </section>
 
-  <section id="tab-album" class="tab">
-    <div class="album-bar">
-      <select id="album-anime"></select>
-      <select id="album-filter">
-        <option value="all">Toutes</option>
-        <option value="owned">Possédées</option>
-        <option value="missing">Manquantes</option>
-        <option value="dupes">Doublons</option>
+  <section id="tab-binder" class="tab">
+    <div class="lib-bar">
+      <input id="lib-search" class="search" placeholder="Chercher un classeur…">
+      <select id="lib-sort">
+        <option value="owned">Les plus remplis</option>
+        <option value="pop">Les plus populaires</option>
+        <option value="az">A → Z</option>
       </select>
-      <button id="sell-dupes" class="btn">Vendre les doublons</button>
     </div>
-    <p id="album-prog" class="prog"></p>
-    <div id="album" class="grid"></div>
+    <p id="lib-prog" class="prog"></p>
+    <div id="library" class="library"></div>
+    <button id="lib-more" class="btn more">Voir plus</button>
   </section>
 
   <section id="tab-stats" class="tab">
@@ -64,18 +67,38 @@
 </main>
 
 <div id="opening" class="opening">
-  <div class="op-pack" id="op-pack"><div class="op-tear"></div><div class="op-name" id="op-name"></div></div>
+  <div class="op-head" id="op-count"></div>
+  <div class="op-pack" id="op-pack"><div class="op-art" id="op-art"></div><div class="op-tear"></div><div class="op-name" id="op-name"></div></div>
   <div class="op-god" id="op-god">✨ GOD PACK ✨</div>
   <div class="op-cards" id="op-cards"></div>
   <div class="op-bar">
     <button id="op-flip" class="btn">Tout retourner</button>
-    <button id="op-again" class="btn gold">Rouvrir</button>
+    <button id="op-again" class="btn gold">Pack suivant</button>
+    <button id="op-auto" class="btn">▶ Auto</button>
     <button id="op-close" class="btn">Fermer</button>
+  </div>
+  <p class="op-hint">Espace = pack suivant · Échap = fermer</p>
+</div>
+
+<div id="book" class="book">
+  <div class="book-top">
+    <button id="book-close" class="btn">✕</button>
+    <div class="book-title" id="book-title"></div>
+    <div class="book-prog" id="book-prog"></div>
+  </div>
+  <div class="book-stage" id="book-stage"></div>
+  <div class="book-nav">
+    <button id="book-first" class="btn">⏮</button>
+    <button id="book-prev" class="btn">◀</button>
+    <span id="book-page"></span>
+    <button id="book-next" class="btn">▶</button>
+    <button id="book-last" class="btn">⏭</button>
   </div>
 </div>
 
 <div id="zoom" class="zoom"></div>
 <div id="toast" class="toast"></div>
+<script src="vendor/page-flip.browser.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

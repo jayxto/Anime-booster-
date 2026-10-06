@@ -1,8 +1,15 @@
 {
   "name": "anime-boosters",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Jeu d'ouverture de boosters de cartes animé",
   "main": "server.js",
-  "scripts": { "start": "node server.js", "images": "node tools/resolve-images.js", "build": "node tools/build-cards.js" },
+  "scripts": {
+    "start": "node server.js",
+    "fetch": "node tools/fetch-anilist.js 3000",
+    "build": "node tools/build-cards.js"
+  },
+  "dependencies": {
+    "pg": "^8.12.0"
+  },
   "engines": { "node": ">=18" }
 }

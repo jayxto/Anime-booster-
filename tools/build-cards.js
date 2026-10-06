@@ -39,7 +39,7 @@ for (const [, old] of olds) {
     }
     if (!best || bestN < 4) continue;
     used.add(best.id);
-    best.title = old.anime;
+    best.title = /^Fate\//.test(old.anime) ? 'Fate' : old.anime; // toute la saga Fate est regroupée
     const taken = new Set();
     const oldToks = old.cards.map(c => ({ n: c.n, t: new Set([...tokens(c.n), ...tokens(c.raw)]) }));
     for (const c of best.chars) {

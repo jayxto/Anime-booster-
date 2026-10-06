@@ -84,11 +84,18 @@ const cached = async (name, fn) => {
     for (const [id, c] of cap) for (let p = 1; p <= c && pageCache.has(id + '_' + p); p++) chars.set(id, (chars.get(id) || []).concat(pageCache.get(id + '_' + p)));
 
     // titre de la franchise : la 1re saison (série TV sans préquelle) plutôt qu'une suite
-    const clean = t => String(t || '').replace(/\s*\((TV|\d{4})\)\s*$/i, '').replace(/[\s:]+(Season\s*\d+|\d+(st|nd|rd|th)\s+Season|Final Season.*|Part\s*\d+)\s*$/i, '').trim();
+    const clean = t => {
+        let s = String(t || ''), prev;
+        do { prev = s; s = s.replace(/\s*\((TV|\d{4})\)\s*$/i, '').replace(/[\s:]+(Season\s*\d+|\d+(st|nd|rd|th)\s+Season|Final Season.*|Part\s*\d+)\s*$/i, '').trim(); } while (s !== prev);
+        return s;
+    };
     function rootOf(list) {
-        const ids = new Set(list.map(m => m.id));
-        const firsts = list.filter(m => /^TV|ONA/.test(m.format || '') && !m.relations.edges.some(e => e.relationType === 'PREQUEL' && ids.has(e.node.id)));
-        return firsts[0] || list[0];
+        // la 1re série TV (sans préquelle en série) ; sinon la plus populaire si la 1re est bien moins connue
+        const tv = list.filter(m => /^(TV|ONA)/.test(m.format || ''));
+        const series = new Set(tv.map(m => m.id));
+        const first = tv.find(m => !m.relations.edges.some(e => e.relationType === 'PREQUEL' && series.has(e.node.id)));
+        const top = tv[0] || list[0];
+        return first && first.popularity >= top.popularity * 0.5 ? first : top;
     }
 
     // 4) une liste par franchise, sans doublons, sans persos sans photo

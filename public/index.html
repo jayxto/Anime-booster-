@@ -13,7 +13,9 @@
     <button data-tab="shop" class="on">Boosters</button>
     <button data-tab="binder">Classeur</button>
     <button data-tab="stats">Stats</button>
+    <button data-tab="admin" id="nav-admin" style="display:none">👑 Admin</button>
   </nav>
+  <div id="account" class="account"></div>
   <button id="mute" class="mute" title="Son">🔊</button>
   <div class="wallet"><span id="coins">0</span> 🪙</div>
 </header>
@@ -53,6 +55,7 @@
         <option value="pop">Les plus populaires</option>
         <option value="az">A → Z</option>
       </select>
+      <button id="sell-dupes" class="btn">Vendre les doublons</button>
     </div>
     <p id="lib-prog" class="prog"></p>
     <div id="library" class="library"></div>
@@ -64,6 +67,26 @@
     <h2 class="sec">Taux de drop</h2>
     <div id="rates"></div>
     <button id="reset" class="btn danger">Réinitialiser ma partie</button>
+  </section>
+
+  <section id="tab-admin" class="tab">
+    <h2 class="sec">👑 Donner des pièces</h2>
+    <form id="adm-form" class="adm-form" autocomplete="off">
+      <label>Pseudo du joueur<input id="adm-pseudo" class="search" placeholder="Pseudo" required></label>
+      <label>Nombre de pièces<input id="adm-amount" class="search" placeholder="ex. 1 000 000 000, 1 milliard, 2M, -500" required></label>
+      <div class="adm-quick">
+        <button type="button" class="btn" data-add="1000">+1 000</button>
+        <button type="button" class="btn" data-add="100000">+100 000</button>
+        <button type="button" class="btn" data-add="1000000">+1 M</button>
+        <button type="button" class="btn" data-add="1000000000">+1 milliard</button>
+        <span id="adm-preview" class="prog"></span>
+      </div>
+      <button class="btn gold big">Donner les pièces</button>
+      <p id="adm-msg" class="adm-msg"></p>
+    </form>
+    <h2 class="sec">Joueurs</h2>
+    <input id="adm-search" class="search" placeholder="Chercher un pseudo…">
+    <div id="adm-list" class="adm-list"></div>
   </section>
 </main>
 
@@ -97,9 +120,27 @@
   </div>
 </div>
 
+<div id="auth" class="modal">
+  <div class="modal-box">
+    <button id="auth-close" class="modal-x" aria-label="Fermer">✕</button>
+    <div class="auth-tabs"><button data-m="login" class="on">Connexion</button><button data-m="register">Créer un compte</button></div>
+    <form id="auth-form" class="auth-form">
+      <input name="email" type="email" placeholder="Adresse e-mail" autocomplete="email" required>
+      <input name="pseudo" class="reg" placeholder="Pseudo (3 à 20 caractères)" autocomplete="nickname" maxlength="20">
+      <input name="password" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password" required minlength="6">
+      <label class="reg check"><input type="checkbox" name="importGuest" checked> Garder les <b id="auth-guest-cards">0</b> cartes de ma partie invité</label>
+      <p id="auth-err" class="auth-err"></p>
+      <button id="auth-submit" class="btn gold big">Se connecter</button>
+    </form>
+    <p class="auth-note">Avec un compte, ta collection est sauvegardée en ligne et tu la retrouves sur tous tes appareils.</p>
+    <button id="auth-guest" class="link">Continuer en invité</button>
+  </div>
+</div>
+
 <div id="zoom" class="zoom"></div>
 <div id="toast" class="toast"></div>
 <script src="vendor/page-flip.browser.js"></script>
+<script src="engine.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

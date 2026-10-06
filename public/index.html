@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Anime Boosters</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="anime-game-cards.css">
 </head>
 <body>
 <header class="top">
@@ -18,6 +19,7 @@
   <div id="account" class="account"></div>
   <button id="mute" class="mute" title="Son">🔊</button>
   <div class="wallet"><span id="coins">0</span> 🪙</div>
+  <div id="event-banner" class="event-banner" hidden></div>
 </header>
 
 <main>
@@ -64,12 +66,24 @@
 
   <section id="tab-stats" class="tab">
     <div id="stats"></div>
-    <h2 class="sec">Taux de drop</h2>
+    <h2 class="sec">🎲 Chances d'obtention</h2>
     <div id="rates"></div>
     <button id="reset" class="btn danger">Réinitialiser ma partie</button>
   </section>
 
   <section id="tab-admin" class="tab">
+    <h2 class="sec">🍀 Chance pour tout le serveur</h2>
+    <div class="adm-form">
+      <div id="ev-status" class="ev-status">Pas d'événement en cours.</div>
+      <div class="adm-quick">
+        <label>Chance <select id="ev-luck"><option value="2">x2</option><option value="5">x5</option><option value="10" selected>x10</option><option value="50">x50</option><option value="100">x100</option></select></label>
+        <label>Durée <select id="ev-min"><option value="15">15 min</option><option value="30">30 min</option><option value="60" selected>1 h</option><option value="180">3 h</option><option value="1440">24 h</option><option value="0">Jusqu'à ce que je l'arrête</option></select></label>
+      </div>
+      <div class="adm-quick">
+        <button type="button" id="ev-on" class="btn gold">🍀 Activer pour tout le serveur</button>
+        <button type="button" id="ev-off" class="btn">Arrêter</button>
+      </div>
+    </div>
     <h2 class="sec">👑 Donner des pièces</h2>
     <form id="adm-form" class="adm-form" autocomplete="off">
       <label>Pseudo du joueur<input id="adm-pseudo" class="search" placeholder="Pseudo" required></label>
@@ -91,8 +105,10 @@
 </main>
 
 <div id="opening" class="opening">
+  <div class="op-rays"></div>
   <div class="op-head" id="op-count"></div>
-  <div class="op-pack" id="op-pack"><div class="op-art" id="op-art"></div><div class="op-tear"></div><div class="op-name" id="op-name"></div></div>
+  <div class="op-luck" id="op-luck"></div>
+  <div class="op-pack" id="op-pack"><div class="op-art" id="op-art"></div><div class="op-strip"></div><div class="op-name" id="op-name"></div></div>
   <div class="op-god" id="op-god">✨ GOD PACK ✨</div>
   <div class="op-cards" id="op-cards"></div>
   <div class="op-bar">
@@ -102,12 +118,20 @@
     <button id="op-close" class="btn">Fermer</button>
   </div>
   <p class="op-hint">Espace = pack suivant · Échap = fermer</p>
+  <div class="flash" id="flash"></div>
+  <div class="cine" id="cine"></div>
+  <canvas class="fx" id="fx"></canvas>
 </div>
 
 <div id="book" class="book">
   <div class="book-top">
     <button id="book-close" class="btn">✕</button>
     <div class="book-title" id="book-title"></div>
+    <div class="book-tools" id="book-tools" hidden>
+      <input id="book-find" list="book-animes" placeholder="Aller à un animé…">
+      <datalist id="book-animes"></datalist>
+      <button id="book-mine" class="btn">Mes cartes</button>
+    </div>
     <div class="book-prog" id="book-prog"></div>
   </div>
   <div class="book-stage" id="book-stage"></div>
@@ -141,6 +165,7 @@
 <div id="toast" class="toast"></div>
 <script src="vendor/page-flip.browser.js"></script>
 <script src="engine.js"></script>
+<script src="fx.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

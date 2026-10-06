@@ -28,7 +28,8 @@ const list = anilist.map(f => ({ ...f, chars: f.chars.map(c => ({ ...c, display:
 const used = new Set();
 const olds = Object.entries(pool).filter(([u]) => u !== 'pokemon').sort((a, b) => b[1].cards.length - a[1].cards.length);
 let renamed = 0;
-for (const [, old] of olds) {
+const legacyIds = {}; // ancien animé d'Anime Game -> franchise AniList
+for (const [oldKey, old] of olds) {
     const oldKeys = new Map(old.cards.flatMap(c => [[keyOf(c.raw || c.n), c.n], [keyOf(c.n), c.n]])); // nom d'origine et nom affiché
     let best = null, bestN = 0;
     for (const f of list) {
@@ -39,6 +40,7 @@ for (const [, old] of olds) {
     }
     if (!best || bestN < 4) continue;
     used.add(best.id);
+    legacyIds[oldKey] = best.id;
     best.title = /^Fate\//.test(old.anime) ? 'Fate' : old.anime; // toute la saga Fate est regroupée
     const taken = new Set();
     const oldToks = old.cards.map(c => ({ n: c.n, t: new Set([...tokens(c.n), ...tokens(c.raw)]) }));
@@ -54,10 +56,11 @@ for (const [, old] of olds) {
     }
 }
 
-const animes = {};
+const animes = {}, keyOfId = {};
 for (const f of list) {
     let k = slug(f.romaji || f.title) || 'a' + f.id;
     if (animes[k]) k += '-' + f.id;
+    keyOfId[f.id] = k;
     const seen = new Set();
     const cards = f.chars.filter(c => !seen.has(c.display) && seen.add(c.display));
     animes[k] = { name: f.title, color: f.color || null, cover: f.cover, pop: f.popularity, cards: cards.map((c, i) => [c.display, rarityAt(i, cards.length), short(c.img)]) };
@@ -65,16 +68,6 @@ for (const f of list) {
 // Pokédex d'Anime Game (illustrations officielles)
 if (pool.pokemon) {
     animes.pokedex = { name: 'Pokémon — Pokédex', color: '#ffcb05', cover: extra.poke.Pikachu, pop: 0, cards: pool.pokemon.cards.map(c => [c.n, c.r, extra.poke[c.n] || null]).filter(c => c[2]) };
-}
-
-// raretés spéciales : versions à part des persos les plus aimés de chaque animé
-const byPop = Object.keys(animes).filter(k => k !== 'pokedex').sort((a, b) => animes[b].pop - animes[a].pop);
-const TOP10 = new Set(byPop.slice(0, 10)), TOP3 = new Set(byPop.slice(0, 3));
-for (const [k, a] of Object.entries(animes)) {
-    const icons = k === 'pokedex' ? ['Pikachu', 'Dracaufeu', 'Mewtwo'] : a.cards.slice(0, 3).map(c => c[0]);
-    a.specials = { secrete: icons.slice(0, 3), divine: icons.slice(0, 2), cosmique: icons.slice(0, 1) };
-    if (TOP10.has(k)) a.specials.eternelle = icons.slice(0, 1);
-    if (TOP3.has(k)) a.specials.omega = icons.slice(0, 1);
 }
 
 // cartes de saison et Duos d'Anime Game : on retrouve chaque perso par son nom
@@ -99,7 +92,8 @@ for (const d of extra.duo) {
     if (ra && rb) duos.push({ name: d.name, a: ra, b: rb });
 }
 
-const out = { v: 2, imgPrefix: IMG_PREFIX, animes, seasons, duos };
+const legacy = Object.fromEntries(Object.entries(legacyIds).map(([o, id]) => [o, keyOfId[id]]));
+const out = { v: 3, imgPrefix: IMG_PREFIX, animes, seasons, duos, legacy };
 fs.writeFileSync(path.join(__dirname, '..', 'public', 'cards.json'), JSON.stringify(out));
 const total = Object.values(animes).reduce((s, a) => s + a.cards.length, 0);
 console.log(`${Object.keys(animes).length} animés, ${total} persos (${renamed} avec le nom d'Anime Game, ${used.size} animés d'Anime Game retrouvés), ${duos.length} duos, saisons : ${Object.entries(seasons).map(([k, s]) => k + ' ' + s.chars.length).join(', ')}`);

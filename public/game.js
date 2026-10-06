@@ -1,16 +1,22 @@
-/* Anime Boosters — interface : boutique, ouverture, classeur, compte et admin.
+/* Anime Boosters — interface : boutique, ouverture, classeurs, compte et admin.
    Les packs sont tirés par engine.js : dans le navigateur pour les invités, sur le serveur pour les comptes. */
 (() => {
 'use strict';
 
-const { RAR, RAR_LABEL, RANK, SPECIAL_TIERS, FINISHES, GOD_PACK_RATE, DUO_RATE, SEASON_RATE, SHINY_RATE, SEASON_EMO, INFINITE, FREE_PACK, PACKS, ANIME_PACK_PRICE } = Engine;
-let D = null, G = null, S = null, ME = null, SERVER = false, lastPack = null, U = [], BY_POP = [];
+const { RAR, RAR_LABEL, RAR_COLOR, RANK, SPECIAL_TIERS, TIER_BY_ID, SEASON_COLOR, FINISHES, GOD_PACK_RATE, SHINY_RATE, SEASON_EMO, INFINITE, FREE_PACK, PACKS, ANIME_PACK_PRICE } = Engine;
+const FIN_LABEL = Object.fromEntries(FINISHES.map(f => [f.id, f.label]));
+let D = null, G = null, S = null, ME = null, SERVER = false, booted = false, lastPack = null, U = [], BY_POP = [];
+let EVENT = { luck: 1, until: null }, eventSeen = null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = n => Number(n || 0).toLocaleString('fr-FR');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const imgUrl = p => G.imgUrl(p), imgOf = (u, n) => G.imgOf(u, n);
 const seasonActive = id => G.seasonActive(id), seasonChars = id => G.seasonChars(id);
 const baseCard = (...a) => G.baseCard(...a), specialCard = (...a) => G.specialCard(...a), seasonCard = (...a) => G.seasonCard(...a), duoOf = (...a) => G.duoOf(...a);
+const colorOf = c => c.season ? SEASON_COLOR[c.season] || RAR_COLOR.saison : RAR_COLOR[c.rarity] || '#9aa0a6';
+const labelOf = c => c.season ? `${SEASON_EMO[c.season] || ''} ${D.seasons[c.season] ? D.seasons[c.season].label : 'Saison'}` : RAR_LABEL[c.rarity] || c.rarity;
+const luckNow = () => EVENT.luck > 1 && (!EVENT.until || Date.now() < EVENT.until) ? EVENT.luck : 1;
 
 /* ---------- sauvegarde invité (navigateur) ---------- */
 const SAVE_KEY = 'anime-boosters-v2';
@@ -24,10 +30,13 @@ try { MUTED = localStorage.getItem('ab-muted') === '1'; } catch (_) {}
 
 /* ---------- serveur ---------- */
 async function api(method, url, body) {
-    const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
+    let r;
+    try { r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' }); }
+    catch (_) { return { error: 'Connexion perdue.', status: 0 }; }
     let j = {};
     try { j = await r.json(); } catch (_) { j = { error: 'Le serveur ne répond pas.' }; }
     if (!r.ok && !j.error) j.error = 'Erreur ' + r.status;
+    j.status = r.status;
     return j;
 }
 function applyPatch(p) {
@@ -37,9 +46,9 @@ function applyPatch(p) {
 }
 // les actions passent par le serveur pour un compte, par le moteur local pour un invité
 async function doBuy(id) {
-    if (!ME) { const r = G.buy(S, id); if (r.ok) save(); return r; }
+    if (!ME) { const r = G.buy(S, id, Date.now(), luckNow()); if (r.ok) save(); return r; }
     const j = await api('POST', '/api/open', { id });
-    if (j.error) return { ok: false, error: j.error };
+    if (j.error) return { ok: false, error: j.error, retry: j.status === 0 || j.status === 429 || j.status >= 500 };
     applyPatch(j.patch); renderCoins();
     return { ok: true, cards: j.cards, god: j.god };
 }
@@ -58,92 +67,263 @@ async function doSell() {
     return { ok: true, n: j.n, total: j.total };
 }
 
-/* ---------- rendu des cartes ---------- */
-function cardHtml(c, opt = {}) {
-    const ini = c.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    const cls = ['card', 'r-' + c.rarity, c.shiny ? 'shiny' : '', c.finish ? 'f-' + c.finish : '', c.duo ? 'duo' : '', RANK[c.rarity] >= 4 && !opt.flat ? 'big-rar' : ''].join(' ');
-    const im = u => u ? `<img class="im" src="${esc(u)}" alt="" loading="lazy" draggable="false">` : `<div class="im" style="display:grid;place-items:center;font-size:30px;font-weight:900">${esc(ini)}</div>`;
-    const art = c.duo ? c.duo.map(im).join('') : im(imgOf(c.u, c.name));
-    const lab = c.season ? (SEASON_EMO[c.season] || '') + ' ' + esc(D.seasons[c.season].label) : RAR_LABEL[c.rarity];
-    const fin = c.finish ? FINISHES.find(f => f.id === c.finish).label : '';
-    const badges = [opt.isNew ? '<span class="new">NOUVEAU</span>' : '', opt.count > 1 ? `<span>x${opt.count}</span>` : '', c.shiny ? '<span>✨ Brillante</span>' : '', fin ? `<span>${esc(fin)}</span>` : '', opt.coins ? `<span>+${opt.coins} 🪙</span>` : ''].join('');
-    return `<div class="${cls}">${art}<span class="rr">${lab}</span><div class="bd">${badges}</div>
-      <div class="info"><div class="nm">${esc(c.name)}</div><div class="an">${esc(c.anime || '')}</div></div></div>`;
+/* ---------- événement chance pour tout le serveur ---------- */
+function dur(ms) {
+    const m = Math.max(0, Math.round(ms / 60000));
+    if (m < 1) return 'moins d’une minute';
+    const h = Math.floor(m / 60);
+    return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`;
+}
+function setEvent(ev) {
+    const before = luckNow();
+    EVENT = ev && ev.luck > 1 ? { luck: ev.luck, until: ev.left ? Date.now() + ev.left : null } : { luck: 1, until: null };
+    const now = luckNow(), id = now > 1 ? `${ev.id}:${now}` : null;
+    // l'annonce ne s'affiche qu'une fois par événement
+    if (booted && id && id !== eventSeen) { toast(`🍀 Chance x${now} activée sur tout le serveur !`, 5000); sfx('luck'); FX.rain({ colors: ['#39ff14', '#ffe600', '#fff'], duration: 1800 }); }
+    if (booted && now <= 1 && before > 1) toast('L’événement chance est terminé.');
+    eventSeen = id;
+    renderEvent();
+}
+function renderEvent() {
+    const l = luckNow(), b = $('#event-banner');
+    b.hidden = l <= 1;
+    if (l > 1) b.innerHTML = `🍀 CHANCE x${l} SUR TOUT LE SERVEUR <small>${EVENT.until ? 'encore ' + dur(EVENT.until - Date.now()) : 'jusqu’à nouvel ordre'}</small>`;
+    const st = $('#ev-status');
+    st.classList.toggle('on', l > 1);
+    st.textContent = l > 1 ? `🍀 Chance x${l} active pour tout le serveur — ${EVENT.until ? 'encore ' + dur(EVENT.until - Date.now()) : 'sans limite de temps'}` : 'Pas d’événement en cours.';
 }
 
-/* ---------- ouverture ---------- */
-let auto = false, autoT = 0, opened = null, busy = false, wantReveal = false;
+/* ---------- rendu des cartes (même structure que les cartes d'Anime Game) ---------- */
+function cardHtml(c, opt = {}) {
+    const ini = c.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const cls = ['card', 'r-' + c.rarity, c.season ? 'r-' + c.season : '', c.shiny ? 'shiny' : '', c.finish ? 'f-' + c.finish : '', RANK[c.rarity] >= 4 && !opt.flat ? 'big-rar' : ''].filter(Boolean).join(' ');
+    const im = u => u ? `<img src="${esc(u)}" alt="" loading="lazy" draggable="false">` : `<span class="ini">${esc(ini)}</span>`;
+    const art = c.duo ? c.duo.map(im).join('') : im(imgOf(c.u, c.name));
+    const badges = [opt.isNew ? '<span class="new">NOUVEAU</span>' : '', opt.count > 1 ? `<span>x${opt.count}</span>` : '', c.shiny ? '<span>✨ Brillante</span>' : '',
+        c.finish ? `<span>${esc(FIN_LABEL[c.finish] || c.finish)}</span>` : '', opt.coins ? `<span>+${fmt(opt.coins)} 🪙</span>` : ''].join('');
+    return `<div class="${cls}" style="--c:${colorOf(c)}"><i class="bgfx"></i><div class="ci${c.duo ? ' duo' : ''}">${art}</div><i class="fx"></i><i class="glare"></i>`
+        + `<span class="rr">${esc(labelOf(c))}</span><div class="bd">${badges}</div><div class="info"><div class="nm">${esc(c.name)}</div><div class="an">${esc(c.anime || '')}</div></div></div>`;
+}
+// chances d'obtention
+const bigNum = n => n >= 1e12 ? 'plus de mille milliards' : n >= 1e9 ? (n / 1e9).toFixed(1).replace('.0', '').replace('.', ',') + (n >= 2e9 ? ' milliards' : ' milliard')
+    : n >= 1e6 ? (n / 1e6).toFixed(1).replace('.0', '').replace('.', ',') + (n >= 2e6 ? ' millions' : ' million') : fmt(Math.round(n));
+const oddsText = p => !(p > 0) ? null : 1 / p < 1.5 ? 'presque à coup sûr' : '1 sur ' + bigNum(1 / p);
+const shortOdds = p => { if (!(p > 0)) return ''; const n = 1 / p; if (n >= 1e9) return '≈ 0'; return '1/' + (n >= 1e6 ? (n / 1e6).toFixed(1).replace('.0', '') + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : n >= 1e3 ? (n / 1e3).toFixed(1).replace('.0', '') + 'k' : Math.round(n)); };
+const pct = p => (p * 100 >= 1 ? (p * 100).toFixed(1) : p * 100 >= 0.01 ? (p * 100).toFixed(2) : (p * 100).toPrecision(2)).replace('.', ',') + ' %';
+const RULE_TXT = { nuit: '🌙 Sort seulement entre minuit et 6 h (heure de Paris).', top10: 'Seulement les 10 animés phares (One Piece, Naruto, Dragon Ball…).', top3: 'Seulement One Piece, Naruto et Dragon Ball.' };
+const tierNote = t => RULE_TXT[t.rule] || (t.top === Infinity ? `Tous les persos ont leur version ${t.label}.` : t.top === 1 ? 'Le perso le plus connu de chaque animé.' : `Les ${t.top} persos les plus connus de chaque animé.`);
+
+/* ---------- fiche d'une carte ---------- */
+function inspect(c) {
+    const o = S.cards[c.key];
+    const cc = { ...c, shiny: c.shiny != null ? c.shiny : !!(o && o.shiny > 0), finish: c.finish !== undefined ? c.finish : o ? o.fin : null };
+    const luck = luckNow(), p = G.chanceOf(c, luck), t = oddsText(p), tier = TIER_BY_ID[c.rarity];
+    const rule = tier ? tierNote(tier) : '';
+    $('#zoom').innerHTML = `<div class="zoom-wrap">${cardHtml(cc)}<div class="zoom-info">
+      <h3>${esc(c.name)}</h3><div class="zan">${esc(c.anime || '')}</div>
+      <p>Rareté : <b style="color:${colorOf(c)}">${esc(labelOf(c))}</b></p>
+      ${cc.finish ? `<p>Finition : <b>${esc(FIN_LABEL[cc.finish] || cc.finish)}</b></p>` : ''}${cc.shiny ? '<p>✨ Brillante</p>' : ''}
+      <p>${o ? `Dans ta collection : <b>x${fmt(o.n)}</b>` : 'Pas encore dans ta collection'}</p>
+      <div class="odds">🎲 Chance d’obtention${luck > 1 ? ` <small>(🍀 chance x${luck})</small>` : ''}<br>
+        ${t ? `<b>${t}</b> par carte tirée<br><small>Pack Infini (5 cartes) : ${oddsText(1 - Math.pow(1 - p, 5))} par pack</small>`
+            : `<b>${c.season ? 'Seulement pendant l’événement ' + esc(D.seasons[c.season].label) : 'Ne sort pas en ce moment'}</b>`}
+        ${rule ? `<br><small>${esc(rule)}</small>` : ''}</div>
+      <p class="close">Touche n’importe où pour fermer</p></div></div>`;
+    $('#zoom').classList.add('on');
+}
+$('#zoom').onclick = () => $('#zoom').classList.remove('on');
+// la carte suit le doigt / la souris avec un reflet
+let tiltEl = null;
+function untilt() {
+    if (!tiltEl) return;
+    tiltEl.classList.remove('tilting');
+    const card = tiltEl.classList.contains('card') ? tiltEl : tiltEl.querySelector('.card');
+    if (card) card.classList.remove('tilting');
+    tiltEl = null;
+}
+document.addEventListener('pointermove', e => {
+    const el = e.target.closest ? e.target.closest('.slot.up, #zoom .card') : null;
+    if (tiltEl && tiltEl !== el) untilt();
+    if (!el) return;
+    tiltEl = el;
+    const r = el.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    const card = el.classList.contains('card') ? el : el.querySelector('.card');
+    el.style.setProperty('--rx', ((0.5 - py) * 22).toFixed(1) + 'deg');
+    el.style.setProperty('--ry', ((px - 0.5) * 26).toFixed(1) + 'deg');
+    if (card) { card.style.setProperty('--mx', (px * 100).toFixed(0) + '%'); card.style.setProperty('--my', (py * 100).toFixed(0) + '%'); card.classList.add('tilting'); }
+    el.classList.add('tilting');
+});
+document.addEventListener('pointerleave', untilt);
+
+/* ---------- ouverture : arrivée, charge, explosion, distribution, révélations ---------- */
+let auto = false, autoT = 0, opened = null, busy = false, wantReveal = false, flipping = false;
+const AURA = r => r >= 8 ? ['#ffffff', '#ffd700', '#ff3c7a', '#00f0ff', '#7b5cff'] : r >= 5 ? ['#00f0ff', '#b44dff', '#ffffff'] : r >= 4 ? ['#ff3c7a', '#ffb300'] : r >= 3 ? ['#ffb300', '#fff3b0'] : r >= 2 ? ['#b44dff', '#d9b3ff'] : ['#9fd0ff', '#ffffff'];
+const centerOf = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
 async function startOpen(p) {
     if (busy) return;
-    if (p.price && S.coins < p.price) { stopAuto(); return toast('Pas assez de pièces !'); }
+    if (p.price && S.coins < p.price) { stopAuto(auto ? 'Plus assez de pièces : mode auto arrêté.' : ''); if (!auto) toast('Pas assez de pièces !'); return; }
     busy = true;
-    // le pack s'affiche tout de suite ; pour un compte, les cartes arrivent du serveur juste après
-    const ov = $('#opening'), pk = $('#op-pack'), box = $('#op-cards');
-    ov.classList.add('on');
+    const ov = $('#opening'), pk = $('#op-pack');
+    ov.classList.add('on'); ov.classList.remove('charging');
+    ov.style.setProperty('--aura', '#9fd0ff');
     $('#op-god').classList.remove('on');
     $('.op-bar').classList.remove('on');
+    $('#op-cards').innerHTML = '';
     $('#op-count').textContent = '';
-    box.innerHTML = '';
-    pk.style.display = '';
-    pk.classList.remove('tear');
+    $('#op-luck').textContent = luckNow() > 1 ? `🍀 Chance x${luckNow()}` : '';
+    pk.style.display = ''; pk.className = 'op-pack'; void pk.offsetWidth; pk.classList.add('arrive');
     $('#op-art').style.backgroundImage = packArt(p) ? `url('${packArt(p)}')` : '';
     $('#op-name').textContent = p.name;
     opened = null; wantReveal = false;
     pk.onclick = () => { if (opened) reveal(); else wantReveal = true; };
-    let r;
-    try { r = await doBuy(p.id); } catch (_) { r = { ok: false, error: 'Connexion perdue.' }; }
+    sfx('whoosh');
+    let r, tries = 0;
+    for (;;) { // en mode auto, un souci de réseau ne coupe pas tout : on réessaie
+        try { r = await doBuy(p.id); } catch (_) { r = { ok: false, error: 'Connexion perdue.', retry: true }; }
+        if (r.ok || !auto || !r.retry || ++tries > 4) break;
+        await sleep(1500);
+    }
     busy = false;
-    if (!r.ok) { closeOpen(); renderFree(); return toast(r.error); }
+    if (!r.ok) {
+        const wasAuto = auto;
+        closeOpen(); renderFree();
+        return toast(wasAuto ? `Mode auto arrêté : ${r.error}` : r.error);
+    }
     lastPack = p;
     $('#op-count').textContent = p.infinite ? `♾️ Pack infini n°${fmt(S.infinite)}` : '';
-    opened = { cards: r.cards, god: r.god, revealed: false };
+    const best = r.god ? 9 : r.cards.reduce((m, c) => Math.max(m, RANK[c.rarity] || 0), 0);
+    ov.style.setProperty('--aura', AURA(best)[0]); // la lueur du pack annonce ce qu'il y a dedans
+    opened = { cards: r.cards, god: r.god, best, revealed: false };
     if (wantReveal) reveal();
-    else if (auto) autoT = setTimeout(reveal, 350);
+    else if (auto) autoT = setTimeout(reveal, 250);
 }
-function reveal() {
+async function reveal() {
     if (!opened || opened.revealed) return;
     opened.revealed = true;
-    const cards = opened.cards, pk = $('#op-pack'), box = $('#op-cards');
+    const op = opened, ov = $('#opening'), pk = $('#op-pack'), box = $('#op-cards'), cards = op.cards, fast = auto;
+    const colors = AURA(op.best);
     pk.onclick = null;
-    pk.classList.add('tear');
-    sfx('rip');
-    setTimeout(() => {
-        pk.style.display = 'none';
-        if (opened.god) $('#op-god').classList.add('on');
-        // les cartes les plus rares sont révélées en dernier
-        const order = cards.map((c, i) => i).sort((a, b) => (RANK[cards[a].rarity] || 0) - (RANK[cards[b].rarity] || 0));
-        box.innerHTML = order.map((i, k) => { const c = cards[i]; return `<div class="slot" style="animation-delay:${k * 60}ms"><div class="in">
-          <div class="back ${RANK[c.rarity] >= 3 ? 'glow r-' + c.rarity : ''}">🎴</div>${cardHtml(c, { isNew: c.isNew, coins: c.coins })}</div></div>`; }).join('');
-        box.querySelectorAll('.slot').forEach(s => s.onclick = () => { if (s.classList.contains('up')) zoom(s.querySelector('.card').outerHTML); else turn(s); });
-        $('.op-bar').classList.add('on');
-        $('#op-again').disabled = !!lastPack.free || S.coins < (lastPack.price || 0);
-        const top = cards.reduce((m, c) => Math.max(m, RANK[c.rarity] || 0), 0);
-        if (top >= 5) { toast('🔥 Carte ' + RAR_LABEL[cards.find(c => RANK[c.rarity] === top).rarity] + ' !'); if (auto && top >= 6) stopAuto(); }
-        if (auto) { flipAll(); autoT = setTimeout(() => auto && startOpen(lastPack), 1900); }
-    }, 450);
+    const c = centerOf(pk);
+    // 1) le pack se charge
+    pk.classList.remove('arrive'); pk.classList.add('charge'); ov.classList.add('charging');
+    sfx('charge');
+    FX.implode(c.x, c.y, { count: fast ? 25 : 90, colors, radius: 320, life: fast ? 300 : 650 });
+    await sleep(fast ? 220 : 650);
+    // 2) il explose
+    pk.classList.add('burst'); ov.classList.remove('charging');
+    FX.flash($('#flash'), colors[0], fast ? 220 : 450, op.best >= 5 ? 1 : 0.75);
+    FX.ring(c.x, c.y, colors[0], op.best >= 5 ? 460 : 300);
+    FX.burst(c.x, c.y, { count: fast ? 50 : op.best >= 5 ? 280 : 160, colors: [...colors, '#ffffff'], speed: op.best >= 5 ? 13 : 9 });
+    FX.shake(ov, fast ? 4 : op.best >= 5 ? 16 : 9, 380);
+    sfx('rip'); sfx('boom');
+    await sleep(fast ? 120 : 280);
+    if (opened !== op) return;
+    pk.style.display = 'none';
+    // God Pack
+    if (op.god) { $('#op-god').classList.add('on'); FX.rain({ duration: 3000, rate: 8 }); sfx('choir'); if (!fast) await sleep(900); }
+    // 3) les cartes jaillissent du pack (les plus rares sont révélées en dernier)
+    const order = cards.map((x, i) => i).sort((a, b) => (RANK[cards[a].rarity] || 0) - (RANK[cards[b].rarity] || 0));
+    box.innerHTML = order.map(i => {
+        const x = cards[i], r = RANK[x.rarity] || 0;
+        return `<div class="slot" data-i="${i}" style="--c:${colorOf(x)}"><i class="pillar"></i><div class="in"><div class="back${r >= 3 ? ' glow' : ''}${r >= 5 ? ' mega' : ''}"><span>🎴</span></div>${cardHtml(x, { isNew: x.isNew, coins: x.coins })}</div></div>`;
+    }).join('');
+    const slots = [...box.querySelectorAll('.slot')];
+    slots.forEach((s, k) => {
+        if (!s.animate) return;
+        const r = s.getBoundingClientRect(), dx = c.x - (r.left + r.width / 2), dy = c.y - (r.top + r.height / 2);
+        s.animate([{ transform: `translate(${dx}px, ${dy}px) scale(.25) rotate(${(k - slots.length / 2) * 14}deg)`, opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: 'none', opacity: 1 }],
+            { duration: fast ? 380 : 700, delay: k * (fast ? 30 : 85), easing: 'cubic-bezier(.18,.9,.3,1.12)', fill: 'backwards' });
+    });
+    sfx('deal');
+    slots.forEach(s => s.onclick = () => { if (s.classList.contains('up')) inspect(cards[+s.dataset.i]); else turn(s); });
+    $('.op-bar').classList.add('on');
+    $('#op-again').disabled = !!lastPack.free || S.coins < (lastPack.price || 0);
+    if (fast) {
+        await sleep(slots.length * 30 + 420);
+        if (opened !== op) return;
+        await flipAll(true);
+        if (auto && opened === op) autoT = setTimeout(() => auto && startOpen(lastPack), 900);
+    }
 }
-// retourner une carte : petit son si elle est très rare
-function turn(s) {
-    if (s.classList.contains('up')) return;
-    s.classList.add('up');
-    const r = RANK[(s.querySelector('.card').className.match(/\br-(\w+)/) || [])[1]] || 0;
-    if (r >= 5) sfx('epic'); else if (r >= 3) sfx('rare');
+// retourner une carte ; les raretés spéciales ont droit à leur scène plein écran
+async function turn(s, fast) {
+    if (!opened || s.classList.contains('up') || s.classList.contains('turning')) return;
+    const card = opened.cards[+s.dataset.i];
+    if (!card) return;
+    const r = RANK[card.rarity] || 0;
+    s.classList.add('turning');
+    if (r >= 5 && (!fast || r >= 6)) await cinematic(card, fast);
+    s.classList.remove('turning'); s.classList.add('up');
+    const c = centerOf(s), col = colorOf(card), rect = s.getBoundingClientRect();
+    if (r >= 3) { s.classList.add('lit'); FX.burst(c.x, c.y, { count: r >= 4 ? 90 : 50, colors: [col, '#ffffff'], speed: r >= 4 ? 8 : 6 }); FX.ring(c.x, c.y, col, 150, 500); }
+    else if (r >= 1) FX.burst(c.x, c.y, { count: 14, colors: [col], speed: 3, life: 700 });
+    if (card.shiny) FX.sparkle(rect, { count: 18 });
+    if (card.finish) FX.sparkle(rect, { count: 10, colors: ['#ffd700', '#ffffff'] });
+    if (r >= 4) { FX.shake($('#opening'), r >= 5 ? 8 : 5, 260); stamp(s, labelOf(card)); }
+    else if (card.isNew && r >= 2) stamp(s, 'Nouveau !');
+    sfx(r >= 5 ? 'epic' : r >= 3 ? 'rare' : 'flip');
 }
-function flipAll() { $('#op-cards').querySelectorAll('.slot:not(.up)').forEach((s, i) => setTimeout(() => turn(s), i * 110)); }
+function stamp(slot, text) {
+    const el = document.createElement('div');
+    el.className = 'stamp'; el.textContent = text;
+    slot.appendChild(el);
+    setTimeout(() => el.remove(), 1700);
+}
+async function flipAll(fast) {
+    if (flipping) return;
+    flipping = true;
+    try { for (const s of [...$('#op-cards').querySelectorAll('.slot:not(.up)')]) { if (!opened) break; await turn(s, fast); await sleep(fast ? 70 : 140); } }
+    finally { flipping = false; }
+}
+function cinematic(card, fast) {
+    return new Promise(resolve => {
+        const cine = $('#cine'), r = RANK[card.rarity] || 0, col = colorOf(card), big = r >= 8;
+        cine.style.setProperty('--c', col);
+        cine.className = 'cine on t-' + (card.season || card.rarity) + (big ? ' big' : '');
+        cine.innerHTML = `<div class="cine-bg"></div><div class="cine-rays"></div>
+          <div class="cine-card"><div class="cine-in"><div class="back"><span>🎴</span></div>${cardHtml(card, { flat: true })}</div></div>
+          <div class="cine-title"><small>${card.season ? 'Carte de saison' : card.rarity === 'duo' ? 'Carte' : 'Rareté'}</small>${esc(labelOf(card))}</div>
+          <div class="cine-sub">${esc(card.name)} · ${esc(card.anime || '')}</div><div class="cine-skip">Touche pour continuer</div>`;
+        const cx = innerWidth / 2, cy = innerHeight / 2, T = [];
+        sfx('charge');
+        FX.implode(cx, cy, { count: big ? 200 : 130, colors: [col, '#ffffff'], radius: 460, life: fast ? 500 : 1000 });
+        T.push(setTimeout(() => {
+            cine.classList.add('flip');
+            FX.flash($('#flash'), col, 500, 1);
+            FX.ring(cx, cy, col, 560, 900); FX.ring(cx, cy, '#ffffff', 320, 600);
+            FX.burst(cx, cy, { count: big ? 380 : 240, colors: [col, '#ffffff', '#ffd700'], speed: big ? 15 : 12, life: 1700 });
+            FX.shake(cine, big ? 20 : 12, 500);
+            sfx('boom'); sfx('choir');
+        }, fast ? 450 : 1050));
+        T.push(setTimeout(() => {
+            cine.classList.add('title');
+            FX.fireworks(big ? 9 : 4, [col, '#ffffff', '#ffd700', '#ff3c7a']);
+            if (big) FX.rain({ colors: [col, '#ffffff', '#ffd700'], duration: 2500 });
+        }, fast ? 650 : 1400));
+        let done = false;
+        const end = () => { if (done) return; done = true; T.forEach(clearTimeout); cine.className = 'cine'; cine.innerHTML = ''; cine.onclick = null; resolve(); };
+        T.push(setTimeout(end, fast ? 1700 : big ? 4600 : 3300));
+        cine.onclick = e => { e.stopPropagation(); if (cine.classList.contains('flip')) end(); };
+    });
+}
 function next() { if (!lastPack || lastPack.free) return; if (opened && !opened.revealed) return reveal(); startOpen(lastPack); }
-function stopAuto() { auto = false; clearTimeout(autoT); $('#op-auto').classList.remove('on'); $('#op-auto').textContent = '▶ Auto'; }
-function closeOpen() { stopAuto(); $('#opening').classList.remove('on'); renderShop(); }
-$('#op-flip').onclick = flipAll;
+function stopAuto(msg) {
+    const was = auto;
+    auto = false; clearTimeout(autoT);
+    $('#op-auto').classList.remove('on'); $('#op-auto').textContent = '▶ Auto';
+    if (was && msg) toast(msg, 4000);
+}
+function closeOpen() { stopAuto(); opened = null; $('#opening').classList.remove('on'); $('#cine').className = 'cine'; $('#cine').innerHTML = ''; FX.clear(); renderShop(); }
+$('#op-flip').onclick = () => flipAll(false);
 $('#op-close').onclick = closeOpen;
 $('#op-again').onclick = next;
 $('#op-auto').onclick = () => {
     if (auto) return stopAuto();
     if (!lastPack || lastPack.free) return toast('Le mode auto marche avec les packs payants et le Pack Infini.');
     auto = true; $('#op-auto').classList.add('on'); $('#op-auto').textContent = '⏸ Stop';
-    next();
+    if (opened && opened.revealed && !flipping) { flipAll(true).then(() => { if (auto) autoT = setTimeout(() => auto && startOpen(lastPack), 600); }); }
+    else next();
 };
-function zoom(html) { const z = $('#zoom'); z.innerHTML = html; z.classList.add('on'); }
-$('#zoom').onclick = () => $('#zoom').classList.remove('on');
 document.addEventListener('keydown', e => {
     if (e.target.matches && e.target.matches('input, select, textarea')) return;
     if ($('#zoom').classList.contains('on')) { if (e.key === 'Escape') $('#zoom').classList.remove('on'); return; }
@@ -155,6 +335,7 @@ document.addEventListener('keydown', e => {
         return;
     }
     if ($('#opening').classList.contains('on')) {
+        if ($('#cine').classList.contains('on')) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); $('#cine').click(); } return; }
         if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); next(); }
         if (e.key === 'Escape') closeOpen();
     }
@@ -209,34 +390,77 @@ $('#daily-btn').onclick = async () => {
 };
 
 /* ---------- classeurs ---------- */
+const ICON_TIERS = SPECIAL_TIERS.filter(t => t.rule !== 'large').sort((a, b) => a.rank - b.rank);
+const WIDE = new Set(SPECIAL_TIERS.filter(t => t.rule === 'large').map(t => t.id));
+const seasonCards = () => Object.keys(D.seasons).flatMap(id => seasonChars(id).map(([su, n]) => seasonCard(id, su, n)));
+function ownedSpecials() {
+    return Object.keys(S.cards).filter(k => TIER_BY_ID[k.split('|')[2]]).map(k => G.cardOfKey(k)).filter(Boolean)
+        .sort((a, b) => RANK[b.rarity] - RANK[a.rarity] || a.anime.localeCompare(b.anime));
+}
+// le classeur d'un animé : tous ses persos, puis leurs versions spéciales
+function animeCards(u) {
+    const a = D.animes[u], out = a.cards.map((c, i) => baseCard(u, i));
+    for (const t of ICON_TIERS) for (const n of G.specialList(u, t.id)) out.push(specialCard(u, n, t.id));
+    for (const k of Object.keys(S.cards)) { // versions « larges » (Ombre, Mirage…) déjà obtenues
+        if (!k.startsWith(u + '|')) continue;
+        const [, n, tier] = k.split('|');
+        if (tier && WIDE.has(tier)) out.push(specialCard(u, n, tier));
+    }
+    return out;
+}
+const KEYS = new Map();
+function binderKeys(u) {
+    if (!KEYS.has(u)) {
+        const ks = D.animes[u].cards.map(c => u + '|' + c[0]);
+        for (const t of ICON_TIERS) for (const n of G.specialList(u, t.id)) ks.push(u + '|' + n + '|' + t.id);
+        KEYS.set(u, ks);
+    }
+    return KEYS.get(u);
+}
+// le classeur principal réunit toutes les cartes
+function allCards() {
+    const out = [];
+    for (const u of [...BY_POP, 'pokedex']) if (D.animes[u]) D.animes[u].cards.forEach((c, i) => out.push(baseCard(u, i)));
+    D.duos.forEach(d => out.push(duoOf(d)));
+    out.push(...seasonCards(), ...ownedSpecials());
+    return out;
+}
+const sectionOf = c => c.season ? '🎃 Cartes de saison' : c.rarity === 'duo' ? '🤝 Cartes Duo' : TIER_BY_ID[c.rarity] ? '⭐ Raretés spéciales' : c.anime;
 const SPECIAL_BINDERS = {
-    _special: { name: '⭐ Raretés spéciales', cards: () => BY_POP.slice(0, 200).flatMap(x => SPECIAL_TIERS.flatMap(t => (D.animes[x].specials[t.id] || []).map(n => specialCard(x, n, t.id)))) },
-    _saison: { name: '🎃 Cartes de saison', cards: () => Object.keys(D.seasons).flatMap(id => seasonChars(id).map(([su, n]) => seasonCard(id, su, n))) },
+    _all: { name: '📚 Classeur principal', main: true, cards: allCards },
+    _special: { name: '⭐ Mes raretés spéciales', cards: ownedSpecials },
+    _saison: { name: '🎃 Cartes de saison', cards: seasonCards },
     _duo: { name: '🤝 Cartes Duo', cards: () => D.duos.map(d => duoOf(d)) }
 };
-function binderCards(u) { return SPECIAL_BINDERS[u] ? SPECIAL_BINDERS[u].cards() : D.animes[u].cards.map((c, i) => baseCard(u, i)); }
-function ownedIn(u) {
-    if (SPECIAL_BINDERS[u]) return binderCards(u).filter(c => S.cards[c.key]).length;
-    let n = 0; for (const c of D.animes[u].cards) if (S.cards[u + '|' + c[0]]) n++; return n;
+function libStats(u) {
+    if (u === '_all') {
+        let own = 0; for (const k of Object.keys(S.cards)) if (!TIER_BY_ID[k.split('|')[2]]) own++;
+        return { own, tot: U.reduce((s, x) => s + D.animes[x].cards.length, 0) + D.duos.length + seasonCards().length };
+    }
+    if (u === '_special') { const n = ownedSpecials().length; return { own: n, tot: n }; }
+    if (SPECIAL_BINDERS[u]) { const l = SPECIAL_BINDERS[u].cards(); return { own: l.filter(c => S.cards[c.key]).length, tot: l.length }; }
+    const ks = binderKeys(u); let own = 0; for (const k of ks) if (S.cards[k]) own++;
+    return { own, tot: ks.length };
 }
 let libShown = 60;
 function renderLibrary() {
     const q = $('#lib-search').value.trim().toLowerCase(), sort = $('#lib-sort').value;
-    let us = U.filter(u => !q || D.animes[u].name.toLowerCase().includes(q)).map(u => ({ u, own: ownedIn(u), tot: D.animes[u].cards.length, pop: D.animes[u].pop }));
+    let us = U.filter(u => !q || D.animes[u].name.toLowerCase().includes(q)).map(u => ({ u, ...libStats(u), pop: D.animes[u].pop }));
     if (sort === 'owned') us.sort((a, b) => b.own / b.tot - a.own / a.tot || b.own - a.own || b.pop - a.pop);
     else if (sort === 'pop') us.sort((a, b) => b.pop - a.pop);
     else us.sort((a, b) => D.animes[a.u].name.localeCompare(D.animes[b.u].name));
-    const sp = q ? [] : Object.keys(SPECIAL_BINDERS).map(u => ({ u, own: ownedIn(u), tot: binderCards(u).length, special: true }));
+    const sp = q ? [] : Object.keys(SPECIAL_BINDERS).map(u => ({ u, ...libStats(u), special: true }));
     const all = [...sp, ...us];
-    const totalOwn = Object.keys(S.cards).length, totalAll = U.reduce((s, u) => s + D.animes[u].cards.length, 0);
-    $('#lib-prog').textContent = `${fmt(totalOwn)} cartes différentes · ${fmt(totalAll)} persos dans ${fmt(U.length)} classeurs`;
+    const totalAll = U.reduce((s, u) => s + D.animes[u].cards.length, 0);
+    $('#lib-prog').textContent = `${fmt(Object.keys(S.cards).length)} cartes différentes · ${fmt(totalAll)} persos dans ${fmt(U.length)} animés · ${SPECIAL_TIERS.length} raretés spéciales · ${FINISHES.length} finitions`;
     $('#library').innerHTML = all.slice(0, libShown).map(b => {
-        const a = D.animes[b.u], name = b.special ? SPECIAL_BINDERS[b.u].name : a.name;
-        const cover = b.special ? null : (a.cover || imgUrl(a.cards[0][2]));
-        const col = !b.special && a.color ? `--bc:linear-gradient(160deg, ${a.color}, #1a1230)` : '';
-        const art = cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : `<div class="col">${specialArt(b.u).map(s => `<img src="${esc(s)}" alt="" loading="lazy">`).join('')}</div>`;
-        return `<div class="binder-cv ${b.special ? 'special' : ''}" data-u="${esc(b.u)}" style="${col}">${art}
-          <span class="bn">${b.own}/${b.tot}</span><div class="bt">${esc(name)}</div><div class="bp"><i style="width:${Math.round(b.own / Math.max(1, b.tot) * 100)}%"></i></div></div>`;
+        const a = D.animes[b.u], sb = SPECIAL_BINDERS[b.u], name = sb ? sb.name : a.name;
+        const cover = sb ? null : (a.cover || imgUrl(a.cards[0][2]));
+        const col = !sb && a.color ? `--bc:linear-gradient(160deg, ${a.color}, #1a1230)` : '';
+        const art = cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : `<div class="col">${specialArt(b.u, sb && sb.main ? 12 : 4).map(s => `<img src="${esc(s)}" alt="" loading="lazy">`).join('')}</div>`;
+        const count = b.u === '_special' ? `${fmt(b.own)} cartes` : `${fmt(b.own)}/${fmt(b.tot)}`;
+        return `<div class="binder-cv ${sb ? 'special' : ''}${sb && sb.main ? ' main' : ''}" data-u="${esc(b.u)}" style="${col}">${art}
+          <span class="bn">${count}</span><div class="bt">${esc(name)}${sb && sb.main ? '<br><small>Toutes les cartes du jeu</small>' : ''}</div><div class="bp"><i style="width:${b.tot ? Math.round(b.own / b.tot * 100) : 0}%"></i></div></div>`;
     }).join('');
     $('#lib-more').style.display = all.length > libShown ? '' : 'none';
     $('#library').querySelectorAll('.binder-cv').forEach(el => el.onclick = () => openBook(el.dataset.u));
@@ -250,38 +474,50 @@ $('#sell-dupes').onclick = async () => {
     if (!r.n) return toast('Aucun doublon à vendre.');
     renderLibrary(); toast(`${fmt(r.n)} doublons vendus : +${fmt(r.total)} 🪙`);
 };
+// persos pour illustrer les classeurs spéciaux
+function specialArt(u, n = 4) {
+    const l = u === '_all' ? BY_POP.slice(0, n).map(x => imgUrl(D.animes[x].cards[0][2])) : SPECIAL_BINDERS[u].cards().slice(0, 12).map(c => c.duo ? c.duo[0] : imgOf(c.u, c.name));
+    const out = l.filter(Boolean).slice(0, n);
+    return out.length ? out : BY_POP.slice(0, n).map(x => imgUrl(D.animes[x].cards[0][2]));
+}
 
-let flip = null, bookU = null;
+let flip = null, bookU = null, bookCards = [], bookMine = false, bookSections = [], bookUpd = () => {};
 const RINGS = '<div class="rings"><i></i><i></i><i></i></div>';
-function openBook(u, startPage) {
-    const cards = binderCards(u), sp = SPECIAL_BINDERS[u], a = D.animes[u];
-    const name = sp ? sp.name : a.name, own = cards.filter(c => S.cards[c.key]).length;
-    const color = !sp && a.color ? a.color : sp ? '#1d6b8a' : '#7a2236';
-    const cover = sp ? null : (a.cover || imgUrl(a.cards[0][2]));
-    bookU = u;
-    $('#book-title').textContent = name;
-    $('#book-prog').textContent = `${own} / ${cards.length}`;
-    const per = 9, inner = Math.max(2, Math.ceil(cards.length / per));
-    const pages = [];
-    const coverArt = cover ? `<img src="${esc(cover)}" alt="">` : `<div class="col">${specialArt(u).map(s => `<img src="${esc(s)}" alt="">`).join('')}</div>`;
-    pages.push(`<div class="bpage bcover" data-density="hard"><div class="cv" style="--bc:${esc(color)}"><div class="plate">${coverArt}</div><h1>${esc(name)}</h1><p>${own} / ${cards.length} cartes</p></div></div>`);
-    for (let p = 0; p < inner + (inner % 2); p++) {
-        const slice = cards.slice(p * per, p * per + per);
-        const pockets = Array.from({ length: per }, (_, k) => {
-            const c = slice[k];
-            if (!c) return '<div class="pocket empty"></div>';
-            const o = S.cards[c.key], num = p * per + k + 1;
-            if (!o) {
-                const ghost = c.duo ? null : imgOf(c.u, c.name);
-                const tier = RANK[c.rarity] >= 5 ? `<small class="r-${c.rarity}">${c.season ? esc(D.seasons[c.season].label) : RAR_LABEL[c.rarity]}</small>` : '';
-                return `<div class="pocket empty">${ghost ? `<img class="sil" src="${esc(ghost)}" alt="" loading="lazy" draggable="false">` : ''}<b>${num}</b>${tier}</div>`;
-            }
-            const cc = { ...c, shiny: o.shiny > 0, finish: o.fin };
-            // un <button> : la librairie ne tourne pas la page quand on touche une carte, on la zoome
-            return `<button class="pocket" data-i="${p * per + k}">${cardHtml(cc, { flat: true })}${o.n > 1 ? `<span class="cnt">x${o.n}</span>` : ''}</button>`;
-        }).join('');
-        pages.push(`<div class="bpage ${p % 2 ? 'odd' : 'even'}">${RINGS}<div class="pg">${pockets}</div><div class="num">${p + 1}</div></div>`);
+const PER = 9;
+function pocketHtml(c, i) {
+    if (!c) return '<div class="pocket empty"></div>';
+    const o = S.cards[c.key];
+    if (!o) {
+        const ghost = c.duo ? null : imgOf(c.u, c.name);
+        const tier = RANK[c.rarity] >= 5 ? `<small style="--c:${colorOf(c)}">${esc(labelOf(c))}</small>` : '';
+        const odds = shortOdds(G.chanceOf(c, luckNow()));
+        return `<div class="pocket empty">${ghost ? `<img class="sil" src="${esc(ghost)}" alt="" loading="lazy" draggable="false">` : ''}${odds ? `<span class="odds">${odds}</span>` : ''}<b>${i + 1}</b>${tier}</div>`;
     }
+    // un <button> : la librairie ne tourne pas la page quand on touche une carte, on l'ouvre
+    return `<button class="pocket" data-i="${i}">${cardHtml({ ...c, shiny: o.shiny > 0, finish: o.fin }, { flat: true })}${o.n > 1 ? `<span class="cnt">x${o.n}</span>` : ''}</button>`;
+}
+function openBook(u, startPage) {
+    const sb = SPECIAL_BINDERS[u], a = D.animes[u], main = !!(sb && sb.main);
+    let cards = sb ? sb.cards() : animeCards(u);
+    if (main && bookMine) cards = cards.filter(c => S.cards[c.key]);
+    bookU = u; bookCards = cards;
+    // sommaire du classeur principal
+    bookSections = [];
+    if (main) cards.forEach((c, i) => { const s = sectionOf(c); if (!bookSections.length || bookSections[bookSections.length - 1][1] !== s) bookSections.push([i, s]); });
+    $('#book-tools').hidden = !main;
+    if (main) $('#book-animes').innerHTML = bookSections.map(s => `<option value="${esc(s[1])}">`).join('');
+    $('#book-mine').classList.toggle('on', bookMine);
+    $('#book-mine').textContent = bookMine ? '✓ Mes cartes' : 'Mes cartes';
+    const name = sb ? sb.name : a.name, own = cards.filter(c => S.cards[c.key]).length;
+    const color = !sb && a.color ? a.color : main ? '#8a5a12' : sb ? '#1d6b8a' : '#7a2236';
+    const cover = sb ? null : (a.cover || imgUrl(a.cards[0][2]));
+    $('#book-title').textContent = name;
+    $('#book-prog').textContent = `${fmt(own)} / ${fmt(cards.length)}`;
+    const inner = Math.max(2, Math.ceil(cards.length / PER)), total = inner + (inner % 2);
+    const coverArt = cover ? `<img src="${esc(cover)}" alt="">` : `<div class="col">${specialArt(u).map(s => `<img src="${esc(s)}" alt="">`).join('')}</div>`;
+    const pages = [`<div class="bpage bcover" data-density="hard"><div class="cv" style="--bc:${esc(color)}"><div class="plate">${coverArt}</div><h1>${esc(name)}</h1><p>${fmt(own)} / ${fmt(cards.length)} cartes</p></div></div>`];
+    // les pages sont remplies au fil de la lecture (le classeur principal en a des milliers)
+    for (let p = 0; p < total; p++) pages.push(`<div class="bpage ${p % 2 ? 'odd' : 'even'}"></div>`);
     pages.push(`<div class="bpage bcover back" data-density="hard"><div class="cv" style="--bc:${esc(color)}"></div></div>`);
 
     const stage = $('#book-stage');
@@ -289,6 +525,19 @@ function openBook(u, startPage) {
     stage.innerHTML = '<div id="book-el"></div>';
     const el = $('#book-el');
     el.innerHTML = pages.join('');
+    const PG = [...el.querySelectorAll('.bpage:not(.bcover)')];
+    const sectAt = i => { let s = ''; for (const [at, l] of bookSections) { if (at > i) break; s = l; } return s; };
+    function fillPage(p) {
+        const node = PG[p];
+        if (!node || node.dataset.done) return;
+        node.dataset.done = '1';
+        const from = p * PER, slice = cards.slice(from, from + PER);
+        const sect = main && slice.length ? `<div class="sect">${esc(sectAt(from))}</div>` : '';
+        node.innerHTML = `${RINGS}${sect}<div class="pg">${Array.from({ length: PER }, (_, k) => pocketHtml(slice[k], from + k)).join('')}</div><div class="num">${p + 1}</div>`;
+        node.querySelectorAll('button.pocket').forEach(b => b.onclick = () => inspect(cards[+b.dataset.i]));
+    }
+    const fillAround = idx => { for (let p = Math.max(0, idx - 4); p <= Math.min(total - 1, idx + 5); p++) fillPage(p); };
+    fillAround(startPage ? startPage - 1 : 0);
     $('#book').classList.add('on');
     const h = stage.clientHeight - 12, w = stage.clientWidth;
     const portrait = w < 700;
@@ -297,66 +546,95 @@ function openBook(u, startPage) {
     flip.loadFromHTML(el.querySelectorAll('.bpage'));
     const upd = () => {
         const i = flip.getCurrentPageIndex(), n = flip.getPageCount();
-        $('#book-page').textContent = i === 0 ? 'Couverture' : i >= n - 1 ? 'Dos' : portrait || i + 1 >= n - 1 ? `Page ${i} / ${n - 2}` : `Pages ${i}–${i + 1} / ${n - 2}`;
+        fillAround(i - 1);
+        $('#book-page').textContent = i === 0 ? 'Couverture' : i >= n - 1 ? 'Dos' : portrait || i + 1 >= n - 1 ? `Page ${fmt(i)} / ${fmt(n - 2)}` : `Pages ${fmt(i)}–${fmt(i + 1)} / ${fmt(n - 2)}`;
     };
     flip.on('flip', upd); upd();
+    bookUpd = upd;
     flip.on('changeState', e => { if (e.data === 'flipping') sfx('page'); });
-    el.querySelectorAll('.pocket[data-i]').forEach(pk => pk.onclick = () => zoom(pk.querySelector('.card').outerHTML));
     // le classeur s'ouvre tout seul
     if (!startPage) setTimeout(() => { if (flip && bookU === u && flip.getCurrentPageIndex() === 0) flip.flipNext(); }, 650);
 }
 function closeBook() { bookU = null; $('#book').classList.remove('on'); if (flip) { try { flip.destroy(); } catch (_) {} flip = null; } renderLibrary(); }
 let resizeT = 0;
 window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (bookU && flip) openBook(bookU, flip.getCurrentPageIndex() || 1); }, 250); });
-// 4 persos pour illustrer les classeurs spéciaux
-function specialArt(u) { return binderCards(u).slice(0, 12).map(c => c.duo ? c.duo[0] : imgOf(c.u, c.name)).filter(Boolean).slice(0, 4); }
 $('#book-close').onclick = closeBook;
 $('#book-prev').onclick = () => flip && flip.flipPrev();
 $('#book-next').onclick = () => flip && flip.flipNext();
 $('#book-first').onclick = () => flip && flip.flip(0);
 $('#book-last').onclick = () => flip && flip.flip(flip.getPageCount() - 1);
+$('#book-mine').onclick = () => { bookMine = !bookMine; openBook('_all', 1); };
+$('#book-find').onchange = () => {
+    const q = $('#book-find').value.trim().toLowerCase();
+    if (!q || !flip) return;
+    const s = bookSections.find(x => x[1].toLowerCase() === q) || bookSections.find(x => x[1].toLowerCase().includes(q));
+    if (!s) return toast('Animé introuvable dans ce classeur.');
+    flip.turnToPage(1 + Math.floor(s[0] / PER));
+    bookUpd(); sfx('page');
+    $('#book-find').value = ''; $('#book-find').blur();
+};
 
 /* ---------- sons (générés, pas de fichiers) ---------- */
 let AC = null;
+function noise(len, type, f0, f1, vol, t) {
+    const buf = AC.createBuffer(1, Math.max(1, AC.sampleRate * len), AC.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (type === 'rip' && Math.random() < 0.08 ? 1 : 0.5);
+    const src = AC.createBufferSource(); src.buffer = buf;
+    const f = AC.createBiquadFilter(); f.type = type === 'rip' ? 'highpass' : type === 'boom' ? 'lowpass' : 'bandpass';
+    f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + len);
+    const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.05, len / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f).connect(g).connect(AC.destination); src.start(t);
+}
+function tone(hz, t, len, vol, type = 'triangle', to) {
+    const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(hz, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + len);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + len + 0.05);
+}
 function sfx(kind) {
     if (MUTED) return;
     try {
         AC = AC || new (window.AudioContext || window.webkitAudioContext)();
         const t = AC.currentTime;
-        if (kind === 'page' || kind === 'rip') {
-            const len = kind === 'page' ? 0.32 : 0.45;
-            const buf = AC.createBuffer(1, AC.sampleRate * len, AC.sampleRate), d = buf.getChannelData(0);
-            for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (kind === 'rip' && Math.random() < 0.08 ? 1 : 0.5);
-            const src = AC.createBufferSource(); src.buffer = buf;
-            const f = AC.createBiquadFilter(); f.type = kind === 'page' ? 'bandpass' : 'highpass';
-            f.frequency.setValueAtTime(kind === 'page' ? 2200 : 1800, t); f.frequency.exponentialRampToValueAtTime(kind === 'page' ? 700 : 3500, t + len);
-            const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'page' ? 0.22 : 0.3, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-            src.connect(f).connect(g).connect(AC.destination); src.start(t);
-        } else if (kind === 'rare' || kind === 'epic' || kind === 'coins') {
-            const notes = kind === 'rare' ? [523, 659, 784] : kind === 'coins' ? [988, 1319, 988, 1319, 1568] : [523, 659, 784, 1047, 1319];
-            notes.forEach((hz, i) => {
-                const o = AC.createOscillator(), g = AC.createGain(); o.type = kind === 'coins' ? 'square' : 'triangle'; o.frequency.value = hz;
-                const s = t + i * (kind === 'coins' ? 0.07 : 0.09); g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(kind === 'coins' ? 0.06 : 0.15, s + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.45);
-                o.connect(g).connect(AC.destination); o.start(s); o.stop(s + 0.5);
-            });
-        }
+        if (kind === 'page') noise(0.32, 'page', 2200, 700, 0.22, t);
+        else if (kind === 'rip') noise(0.45, 'rip', 1800, 3500, 0.3, t);
+        else if (kind === 'whoosh') noise(0.4, 'page', 400, 2600, 0.12, t);
+        else if (kind === 'deal') { for (let i = 0; i < 4; i++) noise(0.12, 'page', 3000, 1200, 0.08, t + i * 0.08); }
+        else if (kind === 'flip') noise(0.06, 'page', 4000, 2000, 0.07, t);
+        else if (kind === 'charge') { tone(180, t, 0.6, 0.08, 'sawtooth', 900); noise(0.6, 'page', 300, 3000, 0.06, t); }
+        else if (kind === 'boom') { tone(140, t, 0.6, 0.35, 'sine', 38); noise(0.5, 'boom', 900, 120, 0.25, t); }
+        else if (kind === 'choir') { [261.6, 329.6, 392, 523.3, 587.3].forEach((hz, i) => { tone(hz, t + i * 0.02, 1.6, 0.05, 'sawtooth'); tone(hz * 1.005, t, 1.6, 0.04, 'sawtooth'); }); }
+        else if (kind === 'rare') [523, 659, 784].forEach((hz, i) => tone(hz, t + i * 0.09, 0.45, 0.15));
+        else if (kind === 'epic') [523, 659, 784, 1047, 1319].forEach((hz, i) => tone(hz, t + i * 0.09, 0.5, 0.15));
+        else if (kind === 'coins') [988, 1319, 988, 1319, 1568].forEach((hz, i) => tone(hz, t + i * 0.07, 0.4, 0.06, 'square'));
+        else if (kind === 'luck') [523, 659, 784, 1047, 1319, 1568, 2093].forEach((hz, i) => tone(hz, t + i * 0.06, 0.5, 0.1));
     } catch (_) {}
 }
 $('#mute').onclick = () => { MUTED = !MUTED; $('#mute').textContent = MUTED ? '🔇' : '🔊'; try { localStorage.setItem('ab-muted', MUTED ? '1' : '0'); } catch (_) {} };
 
-/* ---------- stats ---------- */
+/* ---------- stats et chances d'obtention ---------- */
 function renderStats() {
     const total = U.reduce((s, u) => s + D.animes[u].cards.length, 0);
     const done = U.filter(u => D.animes[u].cards.every(c => S.cards[u + '|' + c[0]])).length;
     const box = (l, v) => `<div>${l}<b>${v}</b></div>`;
     $('#stats').innerHTML = `<div class="st">${box('Packs ouverts', fmt(S.opened))}${box('Packs infinis', fmt(S.infinite))}${box('Cartes tirées', fmt(S.pulled))}${box('Cartes différentes', fmt(Object.keys(S.cards).length))}
       ${box('Persos au total', fmt(total))}${box('Animés', fmt(U.length))}${box('Classeurs complets', done)}${box('God Packs', S.god)}${box('Brillantes', Object.values(S.cards).filter(o => o.shiny).length)}</div>
-      <h2 class="sec">Tes tirages par rareté</h2><div class="st">${[...RAR, 'saison', 'duo'].map(r => box(`<span style="color:var(--${r})">${RAR_LABEL[r]}</span>`, fmt(S.best[r] || 0))).join('')}</div>`;
-    const pct = r => (r * 100 < 0.01 ? (r * 100).toFixed(4) : (r * 100).toFixed(2)) + ' %';
-    $('#rates').innerHTML = `<table>${SPECIAL_TIERS.map(t => `<tr><td style="color:var(--${t.id})">${RAR_LABEL[t.id]}</td><td>${pct(t.rate)} par carte</td></tr>`).join('')}
-      <tr><td>✨ God Pack</td><td>${pct(GOD_PACK_RATE)} par pack</td></tr><tr><td style="color:var(--duo)">Duo</td><td>${pct(DUO_RATE)} par carte</td></tr>
-      <tr><td style="color:var(--saison)">Saison (pendant l'événement)</td><td>${pct(SEASON_RATE)} par carte</td></tr><tr><td>Brillante</td><td>${pct(SHINY_RATE)} par carte</td></tr>
-      ${FINISHES.map(f => `<tr><td>Finition ${f.label}</td><td>${pct(f.rate)}</td></tr>`).join('')}</table>`;
+      <h2 class="sec">Tes tirages par rareté</h2><div class="st">${[...RAR, 'saison', 'duo'].filter(r => S.best[r] || RANK[r] < 5 || r === 'saison' || r === 'duo').map(r => box(`<span style="color:${RAR_COLOR[r]}">${RAR_LABEL[r]}</span>`, fmt(S.best[r] || 0))).join('')}</div>`;
+    renderRates();
+}
+function renderRates() {
+    const luck = luckNow(), o = G.slotOdds(luck), share = G.baseShare(o.luck);
+    const row = (name, col, p, note) => `<tr><td><span class="dot" style="--c:${col}"></span>${name}${note ? `<br><small class="rates-note">${note}</small>` : ''}</td><td>${p > 0 ? pct(p) : '—'}</td><td>${oddsText(p) || '—'}</td></tr>`;
+    const base = ['commune', 'rare', 'epique', 'legendaire', 'mythique'].map(r => row(RAR_LABEL[r], RAR_COLOR[r], o.base * share[r])).join('');
+    const tiers = SPECIAL_TIERS.slice().sort((a, b) => a.rank - b.rank).map(t => row(t.label, t.color, o.tiers[t.id], tierNote(t))).join('');
+    let rest = 1;
+    const fins = FINISHES.map(f => { const q = Math.min(0.5, f.rate * o.luck), p = rest * q; rest *= 1 - q; return row('Finition ' + f.label, '#ffd700', p); }).join('');
+    $('#rates').innerHTML = `<p class="rates-note">Chances pour une carte tirée dans un pack normal (Pack Infini, boosters 3 et 10 cartes)${luck > 1 ? `, <b>avec la chance x${luck} de l’événement</b>` : ''}. Booster Épique : raretés spéciales x2, Mythique : x4, Pack Chance : tout x10. Touche une carte pour voir sa chance à elle.</p>
+      <table><tr><th>Rareté de base</th><th>par carte</th><th></th></tr>${base}</table>
+      <table><tr><th>Raretés spéciales (${SPECIAL_TIERS.length})</th><th>par carte</th><th></th></tr>${tiers}
+        ${row('Duo', RAR_COLOR.duo, o.duo)}${row('Carte de saison', RAR_COLOR.saison, o.season, o.act.length ? '' : 'Seulement pendant Halloween, Noël, la Saint-Valentin et l’été.')}</table>
+      <table><tr><th>Bonus</th><th></th><th></th></tr>${row('✨ God Pack (que des cartes très rares)', '#ffd700', Math.min(0.2, GOD_PACK_RATE * o.luck), 'par pack de 3 cartes ou plus')}${row('Brillante', '#bfe9ff', Math.min(0.9, SHINY_RATE * o.luck))}</table>
+      <table><tr><th>Finitions (${FINISHES.length})</th><th>par carte</th><th></th></tr>${fins}</table>`;
 }
 $('#reset').onclick = async () => {
     if (!confirm(ME ? 'Effacer toute la collection de ton compte et recommencer ?' : 'Tout effacer et recommencer ?')) return;
@@ -398,8 +676,7 @@ $('#auth-form').onsubmit = async e => {
     btn.disabled = true; $('#auth-err').textContent = '';
     const body = { email: f.email.value, password: f.password.value };
     if (authMode === 'register') { body.pseudo = f.pseudo.value; body.importGuest = f.importGuest.checked; body.guest = guestState(); }
-    let j;
-    try { j = await api('POST', authMode === 'register' ? '/api/register' : '/api/login', body); } catch (_) { j = { error: 'Le serveur ne répond pas.' }; }
+    const j = await api('POST', authMode === 'register' ? '/api/register' : '/api/login', body);
     btn.disabled = false;
     if (j.error) { $('#auth-err').textContent = j.error; return; }
     writeGuest();
@@ -410,25 +687,26 @@ $('#auth-form').onsubmit = async e => {
 };
 async function logout() {
     if (!confirm('Se déconnecter ?')) return;
-    await api('POST', '/api/logout').catch(() => {});
-    ME = null; S = guestState(); stopPing();
+    await api('POST', '/api/logout');
+    ME = null; S = guestState(); startPing();
     renderAll(); toast('Déconnecté. Tu joues en invité.');
 }
-// pièces reçues de l'admin
+// pièces reçues de l'admin et événement chance (compte : toutes les 15 s, invité : toutes les 30 s)
 let pingT = 0;
-function startPing() { stopPing(); pingT = setInterval(ping, 15000); }
-function stopPing() { clearInterval(pingT); }
+function startPing() { clearInterval(pingT); if (SERVER) pingT = setInterval(ping, ME ? 15000 : 30000); }
 async function ping() {
-    if (!ME || document.hidden) return;
-    const j = await api('GET', '/api/ping').catch(() => null);
-    if (!j) return;
-    if (!j.me) { ME = null; S = guestState(); stopPing(); renderAll(); return toast('Session terminée, reconnecte-toi.'); }
+    if (document.hidden) return;
+    if (!ME) { const j = await api('GET', '/api/event'); if (j.event) setEvent(j.event); return; }
+    const j = await api('GET', '/api/ping');
+    if (j.error) return;
+    if (j.event) setEvent(j.event);
+    if (!j.me) { ME = null; S = guestState(); startPing(); renderAll(); return toast('Session terminée, reconnecte-toi.'); }
     S.coins = j.coins; renderCoins();
     showGifts(j.inbox);
 }
 function showGifts(inbox) {
     const total = (inbox || []).reduce((s, g) => s + (g.amount || 0), 0);
-    if (total > 0) { sfx('coins'); toast(`🎁 Tu as reçu ${fmt(total)} pièces de l'admin !`, 5000); renderShop(); }
+    if (total > 0) { sfx('coins'); toast(`🎁 Tu as reçu ${fmt(total)} pièces de l'admin !`, 5000); FX.rain({ colors: ['#ffd700', '#fff6c2'], duration: 1500 }); renderShop(); }
     else if (total < 0) toast(`L'admin t'a retiré ${fmt(-total)} pièces.`, 5000);
 }
 
@@ -445,6 +723,7 @@ function parseAmount(v) {
 let adminQ = 0;
 async function renderAdmin() {
     if (!ME || !ME.admin) return;
+    renderEvent();
     const q = $('#adm-search').value.trim(), my = ++adminQ;
     const j = await api('GET', '/api/admin/players?q=' + encodeURIComponent(q));
     if (my !== adminQ) return;
@@ -471,7 +750,7 @@ $('#adm-form').onsubmit = async e => {
     const n = parseAmount(amount);
     if (!pseudo) return toast('Choisis un joueur.');
     if (!Number.isFinite(n) || !n) return toast('Montant invalide.');
-    if (!confirm(`${n > 0 ? 'Donner' : 'Retirer'} ${fmt(Math.abs(n))} pièces ${n > 0 ? 'à' : 'à'} ${pseudo} ?`)) return;
+    if (!confirm(`${n > 0 ? 'Donner' : 'Retirer'} ${fmt(Math.abs(n))} pièces à ${pseudo} ?`)) return;
     const j = await api('POST', '/api/admin/give', { pseudo, amount });
     if (j.error) { $('#adm-msg').textContent = '❌ ' + j.error; return; }
     $('#adm-msg').textContent = `✅ ${j.given >= 0 ? '+' : ''}${fmt(j.given)} pièces pour ${j.pseudo} (total : ${fmt(j.coins)} 🪙)`;
@@ -479,6 +758,14 @@ $('#adm-form').onsubmit = async e => {
     if (j.pseudo.toLowerCase() === ME.pseudo.toLowerCase()) { S.coins = j.coins; renderCoins(); setTimeout(ping, 300); }
     renderAdmin();
 };
+async function setServerLuck(luck, minutes) {
+    const j = await api('POST', '/api/admin/event', { luck, minutes });
+    if (j.error) return toast(j.error);
+    setEvent(j.event);
+    if (luck <= 1) toast('Événement chance arrêté.');
+}
+$('#ev-on').onclick = () => setServerLuck(+$('#ev-luck').value, +$('#ev-min').value);
+$('#ev-off').onclick = () => setServerLuck(1, 0);
 
 /* ---------- divers ---------- */
 let toastT = 0;
@@ -494,10 +781,11 @@ function showTab(tab) {
     if (tab === 'shop') renderShop();
     if (tab === 'admin') renderAdmin();
 }
-function renderAll() { renderCoins(); renderAccount(); showTab(currentTab()); }
+function renderAll() { renderCoins(); renderAccount(); renderEvent(); showTab(currentTab()); }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
-setInterval(renderFree, 30e3);
+setInterval(() => { renderFree(); if (EVENT.luck > 1) { if (luckNow() <= 1) setEvent(null); else renderEvent(); } }, 30e3);
 $('#mute').textContent = MUTED ? '🔇' : '🔊';
+FX.init($('#fx'));
 
 Promise.all([
     fetch('cards.json').then(r => r.json()),
@@ -505,8 +793,11 @@ Promise.all([
 ]).then(([d, m]) => {
     D = d; G = Engine.create(D); U = G.U; BY_POP = G.BY_POP;
     SERVER = !!m;
-    if (m && m.me) { ME = m.me; S = Object.assign(Engine.fresh(), m.state); startPing(); setTimeout(ping, 1500); }
+    if (m && m.me) { ME = m.me; S = Object.assign(Engine.fresh(), m.state); setTimeout(ping, 1500); }
     else S = guestState();
+    if (m && m.event) setEvent(m.event);
+    startPing();
     renderAll();
+    booted = true;
 }).catch(() => { $('#packs').textContent = 'Impossible de charger les cartes.'; });
 })();

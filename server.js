@@ -39,7 +39,10 @@ function pgStore(url) {
                 pass TEXT NOT NULL, admin BOOLEAN NOT NULL DEFAULT false, state JSONB NOT NULL DEFAULT '{}', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
             await pool.query(`CREATE TABLE IF NOT EXISTS ab_sessions (hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
             await pool.query(`CREATE TABLE IF NOT EXISTS ab_grants (id SERIAL PRIMARY KEY, admin_id INTEGER, user_id INTEGER, amount DOUBLE PRECISION, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+            await pool.query(`CREATE TABLE IF NOT EXISTS ab_settings (key TEXT PRIMARY KEY, value JSONB)`);
         },
+        async getSetting(k) { const r = (await pool.query('SELECT value FROM ab_settings WHERE key=$1', [k])).rows[0]; return r ? r.value : null; },
+        async setSetting(k, v) { await pool.query('INSERT INTO ab_settings (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [k, JSON.stringify(v)]); },
         async count() { return (await pool.query('SELECT count(*)::int AS n FROM ab_users')).rows[0].n; },
         byEmail: e => one('SELECT * FROM ab_users WHERE email=$1', [e]),
         byPseudo: p => one('SELECT * FROM ab_users WHERE pseudo_lc=$1', [p.toLowerCase()]),
@@ -60,7 +63,7 @@ function pgStore(url) {
     };
 }
 function fileStore(file) {
-    let db = { seq: 0, users: [], sessions: {}, grants: [] };
+    let db = { seq: 0, users: [], sessions: {}, grants: [], settings: {} };
     try { db = Object.assign(db, JSON.parse(fs.readFileSync(file, 'utf8'))); } catch (_) {}
     let t = 0;
     const write = () => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file + '.tmp', JSON.stringify(db)); fs.renameSync(file + '.tmp', file); };
@@ -84,6 +87,8 @@ function fileStore(file) {
         async sessionGet(h) { return db.sessions[h] ? db.sessions[h].uid : null; },
         async sessionDel(h) { delete db.sessions[h]; persist(); },
         async grant(adminId, userId, amount) { db.grants.push({ adminId, userId, amount, at: Date.now() }); persist(); },
+        async getSetting(k) { return (db.settings || {})[k] ?? null; },
+        async setSetting(k, v) { (db.settings = db.settings || {})[k] = v; persist(); },
         async close() { clearTimeout(t); write(); }
     };
 }
@@ -103,6 +108,11 @@ async function flush() {
 }
 setInterval(() => flush().catch(() => {}), 2000);
 const isAdmin = u => !!u && (u.admin || ADMIN_EMAILS.includes(u.email));
+
+/* ---------- événement « chance x10 » pour tout le serveur (activé par un admin) ---------- */
+let EVENT = { luck: 1, until: null, by: null };
+const currentLuck = () => EVENT.luck > 1 && (!EVENT.until || Date.now() < EVENT.until) ? EVENT.luck : 1;
+const eventInfo = () => { const luck = currentLuck(); return luck > 1 ? { luck, left: EVENT.until ? EVENT.until - Date.now() : null, id: EVENT.at || 0 } : { luck: 1 }; };
 
 /* ---------- mots de passe et sessions ---------- */
 const hashPass = (pw, salt = crypto.randomBytes(16).toString('hex')) => salt + ':' + crypto.scryptSync(pw, salt, 64).toString('hex');
@@ -179,7 +189,8 @@ function sanitizeImport(S) {
 
 /* ---------- API ---------- */
 const API = {
-    'GET /api/me': async (req, u) => ({ me: meOf(u), state: u ? publicState(u.state) : null }),
+    'GET /api/me': async (req, u) => ({ me: meOf(u), state: u ? publicState(u.state) : null, event: eventInfo() }),
+    'GET /api/event': async () => ({ event: eventInfo() }),
 
     'POST /api/register': async (req, u, b) => {
         if (limited('reg:' + ipOf(req), 10, 3600e3)) return { status: 429, error: 'Trop de comptes créés, réessaie plus tard.' };
@@ -218,7 +229,7 @@ const API = {
     'POST /api/open': async (req, u, b) => {
         if (!u) return { status: 401, error: 'Connecte-toi.' };
         if (limited('open:' + u.id, 12, 1000)) return { status: 429, error: 'Doucement !' };
-        const r = G.buy(u.state, String(b.id || ''));
+        const r = G.buy(u.state, String(b.id || ''), Date.now(), currentLuck());
         if (!r.ok) return { error: r.error };
         DIRTY.add(u.id);
         return { cards: r.cards, god: r.god, patch: patchOf(u.state, r.cards.map(c => c.key)) };
@@ -248,10 +259,10 @@ const API = {
 
     // le jeu demande régulièrement s'il y a des pièces reçues
     'GET /api/ping': async (req, u) => {
-        if (!u) return { me: null };
+        if (!u) return { me: null, event: eventInfo() };
         const inbox = u.state.inbox || [];
         if (inbox.length) { u.state.inbox = []; DIRTY.add(u.id); }
-        return { me: meOf(u), coins: u.state.coins, inbox };
+        return { me: meOf(u), coins: u.state.coins, inbox, event: eventInfo() };
     },
 
     'GET /api/admin/players': async (req, u) => {
@@ -279,6 +290,18 @@ const API = {
         await store.grant(u.id, t.id, given);
         console.log(`[admin] ${u.pseudo} → ${t.pseudo} : ${given} pièces`);
         return { pseudo: t.pseudo, given, coins: t.state.coins };
+    },
+
+    // chance multipliée pour tout le serveur (luck 1 = arrêter)
+    'POST /api/admin/event': async (req, u, b) => {
+        if (!isAdmin(u)) return { status: 403, error: 'Réservé aux admins.' };
+        const luck = Math.round(+b.luck), minutes = Math.round(+b.minutes || 0);
+        if (!Number.isFinite(luck) || luck < 1 || luck > Engine.MAX_LUCK) return { error: `Multiplicateur entre 1 et ${Engine.MAX_LUCK}.` };
+        if (!Number.isFinite(minutes) || minutes < 0 || minutes > 60 * 24 * 30) return { error: 'Durée invalide (30 jours max).' };
+        EVENT = luck > 1 ? { luck, until: minutes ? Date.now() + minutes * 60e3 : null, by: u.pseudo, at: Date.now() } : { luck: 1, until: null, by: u.pseudo };
+        await store.setSetting('event', EVENT);
+        console.log(`[admin] ${u.pseudo} : chance x${luck}${luck > 1 ? (minutes ? ' pendant ' + minutes + ' min' : ' sans limite') : ' (arrêt)'}`);
+        return { event: eventInfo() };
     }
 };
 
@@ -347,6 +370,8 @@ const server = http.createServer(async (req, res) => {
 
 (async () => {
     await store.init();
+    const ev = await store.getSetting('event').catch(() => null);
+    if (ev && ev.luck > 1) EVENT = ev;
     server.listen(PORT, () => console.log(`Anime Boosters sur le port ${PORT} — comptes : ${store.kind}${ADMIN_EMAILS.length ? ' — admins : ' + ADMIN_EMAILS.join(', ') : ' — le 1er compte créé sera admin'}`));
 })().catch(e => { console.error('Démarrage impossible :', e.message); process.exit(1); });
 

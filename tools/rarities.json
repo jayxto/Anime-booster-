@@ -1,0 +1,787 @@
+{
+ "tiers": [
+  {
+   "id": "secrete",
+   "label": "Secrète",
+   "top": 3,
+   "rate": 0.006666666666666667,
+   "coins": 50,
+   "baseRate": 0.006666666666666667
+  },
+  {
+   "id": "stellaire",
+   "label": "Stellaire",
+   "top": 2,
+   "rate": 0.0025,
+   "coins": 70,
+   "baseRate": 0.0025
+  },
+  {
+   "id": "ombre",
+   "label": "Ombre",
+   "top": null,
+   "rate": 0.002,
+   "coins": 60,
+   "wide": true,
+   "baseRate": 0.002
+  },
+  {
+   "id": "divine",
+   "label": "Divine",
+   "top": 2,
+   "rate": 0.0016666666666666668,
+   "coins": 150,
+   "baseRate": 0.0016666666666666668
+  },
+  {
+   "id": "eveillee",
+   "label": "Éveillée",
+   "top": 2,
+   "rate": 0.0011111111111111111,
+   "coins": 100,
+   "baseRate": 0.0011111111111111111
+  },
+  {
+   "id": "mirage",
+   "label": "Mirage",
+   "top": 60,
+   "rate": 0.0011111111111111111,
+   "coins": 110,
+   "wide": true,
+   "baseRate": 0.0011111111111111111
+  },
+  {
+   "id": "spectrale",
+   "label": "Spectrale",
+   "top": 2,
+   "rate": 0.0008333333333333334,
+   "coins": 180,
+   "baseRate": 0.0008333333333333334
+  },
+  {
+   "id": "eclat",
+   "label": "Éclat",
+   "top": 40,
+   "rate": 0.0007142857142857143,
+   "coins": 160,
+   "wide": true,
+   "baseRate": 0.0007142857142857143
+  },
+  {
+   "id": "glaciale",
+   "label": "Glaciale",
+   "top": 1,
+   "rate": 0.0006666666666666668,
+   "coins": 500,
+   "baseRate": 0.00022222222222222223
+  },
+  {
+   "id": "celeste",
+   "label": "Céleste",
+   "top": 2,
+   "rate": 0.0006666666666666666,
+   "coins": 250,
+   "baseRate": 0.0006666666666666666
+  },
+  {
+   "id": "solaire",
+   "label": "Solaire",
+   "top": 2,
+   "rate": 0.000588235294117647,
+   "coins": 220,
+   "baseRate": 0.000588235294117647
+  },
+  {
+   "id": "lunaire",
+   "label": "Lunaire",
+   "top": 2,
+   "rate": 0.0005555555555555556,
+   "coins": 230,
+   "baseRate": 0.0005555555555555556
+  },
+  {
+   "id": "heroique",
+   "label": "Héroïque",
+   "top": 25,
+   "rate": 0.0004166666666666667,
+   "coins": 280,
+   "wide": true,
+   "baseRate": 0.0004166666666666667
+  },
+  {
+   "id": "cosmique",
+   "label": "Cosmique",
+   "top": 1,
+   "rate": 0.0004,
+   "coins": 400,
+   "baseRate": 0.0004
+  },
+  {
+   "id": "sacree",
+   "label": "Sacrée",
+   "top": 1,
+   "rate": 0.00035714285714285714,
+   "coins": 350,
+   "baseRate": 0.00035714285714285714
+  },
+  {
+   "id": "tempete",
+   "label": "Tempête",
+   "top": 1,
+   "rate": 0.0003125,
+   "coins": 420,
+   "baseRate": 0.0003125
+  },
+  {
+   "id": "infernale",
+   "label": "Infernale",
+   "top": 1,
+   "rate": 0.00028571428571428574,
+   "coins": 450,
+   "baseRate": 0.00028571428571428574
+  },
+  {
+   "id": "onirique",
+   "label": "Onirique",
+   "top": 15,
+   "rate": 0.00022222222222222223,
+   "coins": 520,
+   "wide": true,
+   "baseRate": 0.00022222222222222223
+  },
+  {
+   "id": "corrompue",
+   "label": "Corrompue",
+   "top": 1,
+   "rate": 0.0002,
+   "coins": 550,
+   "baseRate": 0.0002
+  },
+  {
+   "id": "legende",
+   "label": "Légende vivante",
+   "top": 1,
+   "rate": 0.00016666666666666666,
+   "coins": 600,
+   "baseRate": 0.00016666666666666666
+  },
+  {
+   "id": "imperiale",
+   "label": "Impériale",
+   "top": 1,
+   "rate": 0.000125,
+   "coins": 800,
+   "baseRate": 0.000125
+  },
+  {
+   "id": "eternelle",
+   "label": "Éternelle",
+   "top": 1,
+   "rate": 0.0001,
+   "coins": 1000,
+   "animes": [
+    "naruto",
+    "onepiece",
+    "dragonball",
+    "bleach",
+    "snk",
+    "jojo",
+    "hxh",
+    "demonslayer",
+    "jjk",
+    "fma"
+   ],
+   "baseRate": 0.0001
+  },
+  {
+   "id": "demoniaque",
+   "label": "Démoniaque",
+   "top": 1,
+   "rate": 0.00008333333333333333,
+   "coins": 1200,
+   "baseRate": 0.00008333333333333333
+  },
+  {
+   "id": "abyssale",
+   "label": "Abyssale",
+   "top": 1,
+   "rate": 0.00005,
+   "coins": 2000,
+   "baseRate": 0.00005
+  },
+  {
+   "id": "ancestrale",
+   "label": "Ancestrale",
+   "top": 1,
+   "rate": 0.00004,
+   "coins": 2200,
+   "baseRate": 0.00004
+  },
+  {
+   "id": "dimensionnelle",
+   "label": "Dimensionnelle",
+   "top": 1,
+   "rate": 0.00002857142857142857,
+   "coins": 2500,
+   "baseRate": 0.00002857142857142857
+  },
+  {
+   "id": "omega",
+   "label": "Oméga",
+   "top": 1,
+   "rate": 0.00002,
+   "coins": 3000,
+   "animes": [
+    "onepiece",
+    "naruto",
+    "dragonball"
+   ],
+   "baseRate": 0.00002
+  },
+  {
+   "id": "chaos",
+   "label": "Chaos",
+   "top": 1,
+   "rate": 0.0000125,
+   "coins": 4000,
+   "baseRate": 0.0000125
+  },
+  {
+   "id": "primordiale",
+   "label": "Primordiale",
+   "top": 1,
+   "rate": 0.000006666666666666667,
+   "coins": 8000,
+   "baseRate": 0.000006666666666666667
+  },
+  {
+   "id": "absolue",
+   "label": "Absolue",
+   "top": 1,
+   "rate": 0.0000025,
+   "coins": 15000,
+   "baseRate": 0.0000025
+  },
+  {
+   "id": "minuit",
+   "label": "Minuit",
+   "top": 5,
+   "rate": 0,
+   "coins": 120,
+   "baseRate": 0.016666666666666666
+  }
+ ],
+ "rank": {
+  "commune": 0,
+  "rare": 1,
+  "epique": 2,
+  "legendaire": 3,
+  "mythique": 4,
+  "secrete": 5,
+  "divine": 6,
+  "cosmique": 7,
+  "eternelle": 8,
+  "omega": 9,
+  "halloween": 5,
+  "eveillee": 5.5,
+  "legende": 7.5,
+  "duo": 4.5,
+  "noel": 5,
+  "valentin": 5,
+  "ete": 5,
+  "altart": 5,
+  "moment": 5,
+  "celeste": 6.5,
+  "abyssale": 8.5,
+  "primordiale": 10,
+  "stellaire": 5.3,
+  "spectrale": 6.2,
+  "infernale": 7.2,
+  "glaciale": 7.3,
+  "imperiale": 7.8,
+  "dimensionnelle": 8.8,
+  "chaos": 9.5,
+  "absolue": 11,
+  "evolution": 5.8,
+  "mensuelle": 6,
+  "fusion": 6.3,
+  "minuit": 5.6,
+  "champion": 6.6,
+  "saison": 6.8,
+  "rectoverso": 6.2,
+  "peuple": 6.4,
+  "solaire": 6.4,
+  "lunaire": 6.45,
+  "sacree": 6.9,
+  "tempete": 7.1,
+  "corrompue": 7.4,
+  "demoniaque": 8.2,
+  "ancestrale": 8.6,
+  "ombre": 5.1,
+  "mirage": 5.7,
+  "eclat": 6.1,
+  "heroique": 6.7,
+  "onirique": 7.25,
+  "lieu": 5.4,
+  "technique": 6,
+  "organisation": 6.8
+ },
+ "finishes": [
+  {
+   "id": "numbered",
+   "label": "Numérotée",
+   "rate": 0.0005
+  },
+  {
+   "id": "bloodseal",
+   "label": "Sceau de sang",
+   "rate": 0.0008333333333333334
+  },
+  {
+   "id": "signed",
+   "label": "Signée",
+   "rate": 0.001
+  },
+  {
+   "id": "crystal",
+   "label": "Cristal",
+   "rate": 0.0011111111111111111
+  },
+  {
+   "id": "chibi",
+   "label": "Chibi",
+   "rate": 0.00125
+  },
+  {
+   "id": "prism",
+   "label": "Prismatique",
+   "rate": 0.0014285714285714286
+  },
+  {
+   "id": "aurora",
+   "label": "Aurore boréale",
+   "rate": 0.0016666666666666668
+  },
+  {
+   "id": "stained",
+   "label": "Vitrail",
+   "rate": 0.0016666666666666668
+  },
+  {
+   "id": "glitch",
+   "label": "Glitch",
+   "rate": 0.002
+  },
+  {
+   "id": "inverted",
+   "label": "Inversée",
+   "rate": 0.002
+  },
+  {
+   "id": "pixel",
+   "label": "8-bit",
+   "rate": 0.0022222222222222222
+  },
+  {
+   "id": "galaxy",
+   "label": "Galaxie",
+   "rate": 0.0025
+  },
+  {
+   "id": "neon",
+   "label": "Néon",
+   "rate": 0.002857142857142857
+  },
+  {
+   "id": "goldleaf",
+   "label": "Feuille d’or",
+   "rate": 0.002857142857142857
+  },
+  {
+   "id": "manga",
+   "label": "Manga",
+   "rate": 0.0033333333333333335
+  },
+  {
+   "id": "electric",
+   "label": "Électrique",
+   "rate": 0.0038461538461538464
+  },
+  {
+   "id": "fullart",
+   "label": "Full Art",
+   "rate": 0.004
+  },
+  {
+   "id": "fire",
+   "label": "En feu",
+   "rate": 0.004545454545454545
+  },
+  {
+   "id": "dark",
+   "label": "Dark",
+   "rate": 0.005
+  },
+  {
+   "id": "retro",
+   "label": "Rétro VHS",
+   "rate": 0.005555555555555556
+  },
+  {
+   "id": "frost",
+   "label": "Givrée",
+   "rate": 0.00625
+  },
+  {
+   "id": "gold",
+   "label": "Gold",
+   "rate": 0.006666666666666667
+  },
+  {
+   "id": "watercolor",
+   "label": "Aquarelle",
+   "rate": 0.007142857142857143
+  },
+  {
+   "id": "sketch",
+   "label": "Croquis",
+   "rate": 0.008333333333333333
+  },
+  {
+   "id": "sakura",
+   "label": "Sakura",
+   "rate": 0.01
+  },
+  {
+   "id": "glitter",
+   "label": "Pailletée",
+   "rate": 0.025
+  },
+  {
+   "id": "reverse",
+   "label": "Reverse Holo",
+   "rate": 0.03333333333333333
+  },
+  {
+   "id": "holo",
+   "label": "Holographique",
+   "rate": 0.05
+  }
+ ],
+ "v9": {
+  "lieu": {
+   "label": "Lieu",
+   "rank": 5.4,
+   "deck": 20,
+   "market": [
+    4000,
+    12000
+   ]
+  },
+  "technique": {
+   "label": "Technique",
+   "rank": 6,
+   "deck": 25,
+   "market": [
+    8000,
+    22000
+   ]
+  },
+  "organisation": {
+   "label": "Organisation",
+   "rank": 6.8,
+   "deck": 32,
+   "market": [
+    20000,
+    60000
+   ]
+  }
+ },
+ "more": [
+  {
+   "id": "stellaire",
+   "label": "Stellaire",
+   "top": 2,
+   "rate": 0.0025,
+   "coins": 70,
+   "rank": 5.3,
+   "deck": 20,
+   "market": [
+    5000,
+    12000
+   ]
+  },
+  {
+   "id": "spectrale",
+   "label": "Spectrale",
+   "top": 2,
+   "rate": 0.0008333333333333334,
+   "coins": 180,
+   "rank": 6.2,
+   "deck": 26,
+   "market": [
+    12000,
+    30000
+   ]
+  },
+  {
+   "id": "infernale",
+   "label": "Infernale",
+   "top": 1,
+   "rate": 0.00028571428571428574,
+   "coins": 450,
+   "rank": 7.2,
+   "deck": 32,
+   "market": [
+    30000,
+    80000
+   ]
+  },
+  {
+   "id": "glaciale",
+   "label": "Glaciale",
+   "top": 1,
+   "rate": 0.00022222222222222223,
+   "coins": 500,
+   "rank": 7.3,
+   "deck": 33,
+   "market": [
+    35000,
+    90000
+   ]
+  },
+  {
+   "id": "imperiale",
+   "label": "Impériale",
+   "top": 1,
+   "rate": 0.000125,
+   "coins": 800,
+   "rank": 7.8,
+   "deck": 40,
+   "market": [
+    60000,
+    160000
+   ]
+  },
+  {
+   "id": "dimensionnelle",
+   "label": "Dimensionnelle",
+   "top": 1,
+   "rate": 0.00002857142857142857,
+   "coins": 2500,
+   "rank": 8.8,
+   "deck": 70,
+   "market": [
+    200000,
+    500000
+   ]
+  },
+  {
+   "id": "chaos",
+   "label": "Chaos",
+   "top": 1,
+   "rate": 0.0000125,
+   "coins": 4000,
+   "rank": 9.5,
+   "deck": 90,
+   "market": [
+    400000,
+    1000000
+   ]
+  },
+  {
+   "id": "absolue",
+   "label": "Absolue",
+   "top": 1,
+   "rate": 0.0000025,
+   "coins": 15000,
+   "rank": 11,
+   "deck": 200,
+   "market": [
+    2000000,
+    6000000
+   ]
+  }
+ ],
+ "v8f": [
+  {
+   "id": "bloodseal",
+   "label": "Sceau de sang",
+   "rate": 0.0008333333333333334,
+   "deck": 8,
+   "atelier": [
+    5,
+    3200
+   ]
+  },
+  {
+   "id": "chibi",
+   "label": "Chibi",
+   "rate": 0.00125,
+   "deck": 6,
+   "atelier": [
+    5,
+    2600
+   ]
+  },
+  {
+   "id": "stained",
+   "label": "Vitrail",
+   "rate": 0.0016666666666666668,
+   "deck": 7,
+   "atelier": [
+    5,
+    2400
+   ]
+  },
+  {
+   "id": "inverted",
+   "label": "Inversée",
+   "rate": 0.002,
+   "deck": 6,
+   "atelier": [
+    4,
+    1800
+   ]
+  },
+  {
+   "id": "goldleaf",
+   "label": "Feuille d’or",
+   "rate": 0.002857142857142857,
+   "deck": 5,
+   "atelier": [
+    4,
+    1500
+   ]
+  },
+  {
+   "id": "electric",
+   "label": "Électrique",
+   "rate": 0.0038461538461538464,
+   "deck": 4,
+   "atelier": [
+    3,
+    1000
+   ]
+  },
+  {
+   "id": "fire",
+   "label": "En feu",
+   "rate": 0.004545454545454545,
+   "deck": 4,
+   "atelier": [
+    3,
+    900
+   ]
+  },
+  {
+   "id": "frost",
+   "label": "Givrée",
+   "rate": 0.00625,
+   "deck": 3,
+   "atelier": [
+    3,
+    700
+   ]
+  },
+  {
+   "id": "watercolor",
+   "label": "Aquarelle",
+   "rate": 0.007142857142857143,
+   "deck": 3,
+   "atelier": [
+    2,
+    500
+   ]
+  }
+ ],
+ "morefin": [
+  {
+   "id": "crystal",
+   "label": "Cristal",
+   "rate": 0.0011111111111111111,
+   "deck": 9
+  },
+  {
+   "id": "prism",
+   "label": "Prismatique",
+   "rate": 0.0014285714285714286,
+   "deck": 8
+  },
+  {
+   "id": "aurora",
+   "label": "Aurore boréale",
+   "rate": 0.0016666666666666668,
+   "deck": 8
+  },
+  {
+   "id": "pixel",
+   "label": "8-bit",
+   "rate": 0.0022222222222222222,
+   "deck": 6
+  },
+  {
+   "id": "neon",
+   "label": "Néon",
+   "rate": 0.002857142857142857,
+   "deck": 6
+  },
+  {
+   "id": "retro",
+   "label": "Rétro VHS",
+   "rate": 0.005555555555555556,
+   "deck": 4
+  },
+  {
+   "id": "sketch",
+   "label": "Croquis",
+   "rate": 0.008333333333333333,
+   "deck": 3
+  },
+  {
+   "id": "sakura",
+   "label": "Sakura",
+   "rate": 0.01,
+   "deck": 3
+  }
+ ],
+ "rarOrder": [
+  "commune",
+  "rare",
+  "epique",
+  "legendaire",
+  "mythique",
+  "secrete",
+  "ombre",
+  "stellaire",
+  "eveillee",
+  "minuit",
+  "mirage",
+  "divine",
+  "eclat",
+  "spectrale",
+  "solaire",
+  "lunaire",
+  "celeste",
+  "heroique",
+  "sacree",
+  "cosmique",
+  "tempete",
+  "infernale",
+  "onirique",
+  "glaciale",
+  "corrompue",
+  "legende",
+  "imperiale",
+  "eternelle",
+  "demoniaque",
+  "abyssale",
+  "ancestrale",
+  "dimensionnelle",
+  "omega",
+  "chaos",
+  "primordiale",
+  "absolue"
+ ],
+ "numberedMax": 50
+}

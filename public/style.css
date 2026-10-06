@@ -74,9 +74,35 @@ select { background: var(--panel); color: var(--txt); border: 1px solid #3a3170;
 .card .fx { z-index: 2; }
 .card .glare { z-index: 3; opacity: 0; transition: opacity .2s; background: radial-gradient(circle at var(--mx) var(--my), rgba(255,255,255,.5), transparent 55%); mix-blend-mode: soft-light; }
 .card.tilting .glare { opacity: 1; }
-.card .info { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 7px 6px; background: linear-gradient(to top, rgba(0,0,0,.92), transparent); z-index: 4; }
-.card .nm { font-weight: 800; font-size: max(9px, 9.5cqw); line-height: 1.15; }
-.card .an { font-size: max(8px, 7cqw); color: #cfc8ef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .info { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 7px 6px; background: linear-gradient(to top, rgba(6,5,14,.96) 42%, rgba(6,5,14,.72) 70%, transparent); z-index: 5; }
+.card .info::before { content: ""; position: absolute; left: 6%; right: 6%; top: 14px; height: 1px; background: linear-gradient(90deg, transparent, var(--c), transparent); }
+.card .nm { font-weight: 800; font-size: max(9px, 9.5cqw); line-height: 1.15; text-shadow: 0 1px 2px #000, 0 0 8px rgba(0,0,0,.6); }
+.card:is(.rk-3, .rk-4) .nm { color: color-mix(in srgb, var(--c) 30%, #fff); }
+.card .meta { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.card .an { flex: 1; min-width: 0; font-size: max(8px, 7cqw); color: #cfc8ef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .gems { flex-shrink: 0; font-size: max(8px, 7cqw); letter-spacing: -1px; color: var(--c); text-shadow: 0 0 6px var(--c); }
+.card.rk-0 .gems { color: #b9bec6; text-shadow: none; }
+
+/* cadre : fin liseré, coins dorés dès épique, lumière qui fait le tour dès légendaire */
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes ang { to { --ang: 360deg; } }
+.card .frame { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), inset 0 0 14px color-mix(in srgb, var(--c) 30%, transparent); }
+.card.rk-1 .frame { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 70%, #fff), inset 0 0 16px color-mix(in srgb, var(--c) 45%, transparent); }
+.card:is(.rk-2, .rk-3, .rk-4) .frame { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 75%, #fff), inset 0 0 22px color-mix(in srgb, var(--c) 55%, transparent); }
+.card:is(.rk-2, .rk-3, .rk-4, .rk-5, .rk-7, .rk-8) .frame::after { content: ""; position: absolute; inset: 5px; border-radius: 6px; opacity: .95; filter: drop-shadow(0 0 3px var(--c));
+  background: linear-gradient(var(--c), var(--c)) top left / 14px 2px no-repeat, linear-gradient(var(--c), var(--c)) top left / 2px 14px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 14px 2px no-repeat, linear-gradient(var(--c), var(--c)) top right / 2px 14px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 14px 2px no-repeat, linear-gradient(var(--c), var(--c)) bottom left / 2px 14px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 14px 2px no-repeat, linear-gradient(var(--c), var(--c)) bottom right / 2px 14px no-repeat; }
+.card:is(.rk-3, .rk-4, .rk-5, .rk-7, .rk-8) .frame::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
+  background: conic-gradient(from var(--ang), transparent 0 55%, color-mix(in srgb, var(--c) 80%, #fff) 70%, #fff 75%, color-mix(in srgb, var(--c) 80%, #fff) 80%, transparent 95%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: ang 3s linear infinite; }
+.card.rk-4 .frame::before { background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); animation-duration: 4s; }
+.card:is(.rk-7, .rk-8) .frame::before { padding: 3px; animation-duration: 2s; }
+/* reflet qui passe sur les cartes rares sans finition */
+.card:is(.rk-1, .rk-2):not(.has-fin) .fx { background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.22) 50%, transparent 62%); background-size: 260% 100%; mix-blend-mode: overlay; animation: sheen 4s ease-in-out infinite; }
+.card:is(.rk-3, .rk-4):not(.has-fin) .fx { background: linear-gradient(115deg, transparent 30%, color-mix(in srgb, var(--c) 45%, transparent) 44%, rgba(255,255,255,.45) 50%, color-mix(in srgb, var(--c) 45%, transparent) 56%, transparent 70%); background-size: 260% 100%; mix-blend-mode: color-dodge; animation: sheen 3s ease-in-out infinite; }
+@keyframes sheen { 0% { background-position: 130% 0; } 60%, 100% { background-position: -30% 0; } }
 .card .rr { position: absolute; top: 5px; left: 5px; z-index: 5; font-size: max(8px, 6.5cqw); font-weight: 900; text-transform: uppercase; letter-spacing: .5px; padding: 1px 6px; border-radius: 99px; background: rgba(0,0,0,.7); color: var(--c); }
 .card .bd { position: absolute; top: 5px; right: 5px; z-index: 5; display: flex; gap: 3px; flex-direction: column; align-items: flex-end; }
 .card .bd span { font-size: max(8px, 6.5cqw); font-weight: 800; padding: 1px 6px; border-radius: 99px; background: rgba(0,0,0,.75); }
@@ -129,17 +155,37 @@ select { background: var(--panel); color: var(--txt); border: 1px solid #3a3170;
 @keyframes godIn { from { transform: scale(3); opacity: 0; filter: blur(8px); } }
 .op-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; max-width: 1000px; }
 .slot { --c: #fff; position: relative; width: 160px; aspect-ratio: 5/7; perspective: 900px; cursor: pointer; transition: transform .15s ease-out; }
-.slot .in { position: relative; width: 100%; height: 100%; transition: transform .55s cubic-bezier(.3,1.4,.5,1); transform-style: preserve-3d; z-index: 1; }
+.slot .in { position: relative; width: 100%; height: 100%; transition: transform var(--flip, .55s) cubic-bezier(.3,1.4,.5,1); transform-style: preserve-3d; z-index: 1; }
 .slot.up .in { transform: rotateY(180deg); }
 .slot.turning .in { animation: wobble .45s ease-in-out infinite; }
 @keyframes wobble { 50% { transform: rotateY(25deg) scale(1.05); } }
 .slot .back, .slot .card { position: absolute; inset: 0; backface-visibility: hidden; }
 .slot .card { transform: rotateY(180deg); }
-.slot .back { border-radius: 10px; border: 3px solid #3a3170; background: radial-gradient(circle, #3a2a7a, #1b1636); display: grid; place-items: center; font-size: 40px; overflow: hidden; }
+.slot .back { border-radius: 10px; border: 3px solid #4a3f8a; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(circle, rgba(255,255,255,.08), transparent 60%), repeating-linear-gradient(45deg, rgba(255,215,140,.07) 0 2px, transparent 2px 12px), repeating-linear-gradient(-45deg, rgba(255,215,140,.07) 0 2px, transparent 2px 12px), linear-gradient(160deg, #2a1f66, #120d2e); }
+.emb { position: relative; width: 46%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 18px rgba(255,210,122,.35);
+  background: radial-gradient(circle, #241a55 56%, transparent 57%), conic-gradient(from 0deg, #ffd27a, #b8860b, #fff1c1, #b8860b, #ffd27a); }
+.emb::before { content: "AB"; font: 900 26px/1 system-ui, sans-serif; letter-spacing: 1px; background: linear-gradient(180deg, #fff3c4, #d4a017); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.slot .back.t1 { border-color: color-mix(in srgb, var(--c) 70%, #4a3f8a); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 50%, transparent); }
+.slot .back.t2 { border-color: var(--c); box-shadow: 0 0 16px var(--c); }
+.slot .back.t3 { border-color: var(--c); box-shadow: 0 0 22px var(--c), 0 0 44px var(--c); animation: backPulse 1.2s ease-in-out infinite; }
+.slot .back.t4 { border-color: #fff; box-shadow: 0 0 24px var(--c), 0 0 52px var(--c); animation: backPulse .9s ease-in-out infinite; }
+.slot .back.t5 { border-color: #fff; background: conic-gradient(from 0deg, #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); box-shadow: 0 0 26px #fff, 0 0 60px var(--c); animation: backPulse .7s ease-in-out infinite; }
 .slot .back::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.25) 50%, transparent 70%); background-size: 250% 250%; animation: holo 3s linear infinite; }
-.slot .back.glow { border-color: var(--c); box-shadow: 0 0 22px var(--c), 0 0 44px var(--c); animation: backPulse 1.2s ease-in-out infinite; }
-.slot .back.mega { background: conic-gradient(from 0deg, #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); animation: backPulse .7s ease-in-out infinite; }
-.slot .back.mega span { filter: drop-shadow(0 0 8px #fff); }
+/* suspense avant de retourner, mise au point sur les grosses cartes, halo autour des cartes rares */
+.slot.tease .in { animation: tease .11s linear infinite; }
+.slot.tease .back { filter: brightness(1.7); box-shadow: 0 0 30px var(--c), 0 0 80px var(--c); }
+@keyframes tease { 0%, 100% { transform: none; } 25% { transform: translate(-2px, 1px) rotate(-1.5deg) scale(1.03); } 75% { transform: translate(2px, -1px) rotate(1.5deg) scale(1.03); } }
+.op-cards .slot { transition: transform .15s ease-out, filter .4s; }
+.op-cards.focus .slot:not(.focus) { filter: brightness(.3) saturate(.5); }
+.slot.focus { transform: scale(1.08); z-index: 3; }
+.opening { transition: background .5s; }
+.opening.dim { background: radial-gradient(circle at 50% 40%, #0d0820, #000 75%); }
+.opening.dim .op-rays { opacity: .06; }
+.slot .halo { position: absolute; inset: -16%; z-index: 0; pointer-events: none; border-radius: 50%; opacity: 0; transition: opacity .6s .2s; filter: blur(14px);
+  background: conic-gradient(from var(--ang), transparent, color-mix(in srgb, var(--c) 75%, transparent), transparent 30%, color-mix(in srgb, var(--c) 75%, transparent) 60%, transparent 80%); animation: ang 4s linear infinite; }
+.slot.up:is(.rk-3, .rk-4, .rk-5, .rk-7, .rk-8) .halo { opacity: .85; }
+.slot.up.rk-4 .halo, .slot.up.rk-8 .halo { background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); opacity: .7; }
 @keyframes backPulse { 50% { transform: scale(1.04); filter: brightness(1.35); } }
 .slot .pillar { position: absolute; left: 10%; right: 10%; top: -60%; bottom: -10%; z-index: 0; pointer-events: none; opacity: 0;
   background: linear-gradient(to top, color-mix(in srgb, var(--c) 70%, transparent), transparent 85%); filter: blur(10px); }
@@ -148,6 +194,12 @@ select { background: var(--panel); color: var(--txt); border: 1px solid #3a3170;
 .slot.tilting { transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(1.06); z-index: 5; }
 .stamp { position: absolute; left: 50%; top: 40%; z-index: 6; white-space: nowrap; pointer-events: none; font-weight: 900; font-size: 22px; text-transform: uppercase; letter-spacing: 1px;
   color: #fff; -webkit-text-stroke: 1px rgba(0,0,0,.5); text-shadow: 0 0 10px var(--c), 0 0 22px var(--c); animation: stamp 1.6s ease-out forwards; }
+.stamp.small { font-size: 15px; top: 16%; color: #eafff3; text-shadow: 0 0 10px #39ff9a, 0 0 20px #39ff9a; }
+.op-sum { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 16px; opacity: 0; pointer-events: none; }
+.op-sum:empty { display: none; }
+.op-sum.on { animation: fadeUp .5s forwards; }
+.op-sum span { background: rgba(24,20,46,.92); border: 1px solid #3a3170; border-radius: 99px; padding: 6px 14px; font-weight: 800; font-size: 14px; }
+.op-sum .sum-gems { font-style: normal; text-shadow: 0 0 6px currentColor; }
 @keyframes stamp { 0% { transform: translate(-50%, -50%) scale(3) rotate(-12deg); opacity: 0; } 15% { transform: translate(-50%, -50%) scale(1) rotate(-8deg); opacity: 1; } 75% { opacity: 1; } 100% { transform: translate(-50%, -120%) scale(1) rotate(-8deg); opacity: 0; } }
 .op-bar { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; visibility: hidden; }
 .op-bar.on { visibility: visible; }
@@ -167,7 +219,7 @@ select { background: var(--panel); color: var(--txt); border: 1px solid #3a3170;
 .cine.flip .cine-in { animation: none; transform: rotateY(180deg) scale(1.08); transition: transform .5s cubic-bezier(.3,1.6,.5,1); }
 .cine .cine-in > .back, .cine .cine-in > .card { position: absolute; inset: 0; backface-visibility: hidden; }
 .cine .cine-in > .card { transform: rotateY(180deg); box-shadow: 0 0 40px var(--c), 0 0 100px var(--c); }
-.cine .cine-in > .back { border-radius: 10px; border: 3px solid var(--c); display: grid; place-items: center; font-size: 60px; background: conic-gradient(from 0deg, #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); box-shadow: 0 0 60px var(--c); }
+.cine .cine-in > .back { border-radius: 10px; border: 3px solid var(--c); display: grid; place-items: center; background: conic-gradient(from 0deg, #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); box-shadow: 0 0 60px var(--c); }
 .cine .cine-title { position: absolute; top: 10%; left: 0; right: 0; text-align: center; font-size: clamp(34px, 9vw, 86px); font-weight: 900; text-transform: uppercase; letter-spacing: 3px; color: #fff; opacity: 0;
   text-shadow: 0 0 20px var(--c), 0 0 50px var(--c), 3px 0 #ff00e6, -3px 0 #00e5ff; }
 .cine .cine-title small { display: block; font-size: .28em; letter-spacing: 6px; opacity: .85; }
@@ -231,6 +283,7 @@ button.pocket * { pointer-events: none; }
   background: linear-gradient(155deg, rgba(255,255,255,.2), rgba(255,255,255,.04) 28%, transparent 45%, transparent 75%, rgba(255,255,255,.07)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), inset 0 -10px 0 -8px rgba(255,255,255,.08); }
 .pocket .card { width: 92%; height: auto; max-height: 95%; border-width: 2px; box-shadow: 0 2px 6px rgba(0,0,0,.6); animation: none; }
 .pocket .card .bd, .pocket .card .rr { display: none; }
+.pocket .card .frame::before { animation: none; }
 .pocket .card:is(.r-secrete, .r-ombre, .r-stellaire, .r-eveillee, .r-minuit, .r-mirage, .r-divine, .r-eclat, .r-spectrale, .r-solaire, .r-lunaire, .r-celeste, .r-heroique, .r-sacree, .r-cosmique, .r-tempete, .r-infernale, .r-onirique, .r-glaciale, .r-corrompue, .r-legende, .r-imperiale, .r-eternelle, .r-demoniaque, .r-abyssale, .r-ancestrale, .r-dimensionnelle, .r-omega, .r-chaos, .r-primordiale, .r-absolue, .r-saison, .r-duo) .rr { display: block; }
 .pocket.empty .sil { position: absolute; inset: 5%; width: 90%; height: 90%; object-fit: cover; object-position: center top; border-radius: 4px; filter: grayscale(1) brightness(.55) blur(1.5px); opacity: .28; }
 .pocket.empty b { position: relative; z-index: 2; color: #a08b72; font-size: 15px; font-weight: 800; text-shadow: 0 1px 3px #000; }

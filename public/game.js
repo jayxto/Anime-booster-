@@ -94,15 +94,20 @@ function renderEvent() {
 }
 
 /* ---------- rendu des cartes (même structure que les cartes d'Anime Game) ---------- */
+// groupe de rareté pour les effets : 0 commune … 4 mythique, 5 spéciale, 7 très rare, 8 au-delà d'Éternelle
+const rkOf = c => { const r = RANK[c.rarity] || 0; return r >= 8 ? 8 : r >= 7 ? 7 : r >= 5 || c.rarity === 'duo' ? 5 : Math.floor(r); };
+const STARS = ['★', '★★', '★★★', '★★★★', '★★★★★'];
+const gemsOf = c => { const k = rkOf(c); return k < 5 ? STARS[k] : (RANK[c.rarity] || 0) >= 9 ? '👑' : k >= 8 ? '✦✦✦✦' : k >= 7 ? '✦✦✦' : '✦✦'; };
 function cardHtml(c, opt = {}) {
-    const ini = c.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    const cls = ['card', 'r-' + c.rarity, c.season ? 'r-' + c.season : '', c.shiny ? 'shiny' : '', c.finish ? 'f-' + c.finish : '', RANK[c.rarity] >= 4 && !opt.flat ? 'big-rar' : ''].filter(Boolean).join(' ');
+    const ini = c.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(), rk = rkOf(c);
+    const cls = ['card', 'r-' + c.rarity, c.season ? 'r-' + c.season : '', 'rk-' + rk, c.shiny ? 'shiny' : '', c.finish ? 'f-' + c.finish + ' has-fin' : '', rk >= 4 && !opt.flat ? 'big-rar' : ''].filter(Boolean).join(' ');
     const im = u => u ? `<img src="${esc(u)}" alt="" loading="lazy" draggable="false">` : `<span class="ini">${esc(ini)}</span>`;
     const art = c.duo ? c.duo.map(im).join('') : im(imgOf(c.u, c.name));
     const badges = [opt.isNew ? '<span class="new">NOUVEAU</span>' : '', opt.count > 1 ? `<span>x${opt.count}</span>` : '', c.shiny ? '<span>✨ Brillante</span>' : '',
         c.finish ? `<span>${esc(FIN_LABEL[c.finish] || c.finish)}</span>` : '', opt.coins ? `<span>+${fmt(opt.coins)} 🪙</span>` : ''].join('');
-    return `<div class="${cls}" style="--c:${colorOf(c)}"><i class="bgfx"></i><div class="ci${c.duo ? ' duo' : ''}">${art}</div><i class="fx"></i><i class="glare"></i>`
-        + `<span class="rr">${esc(labelOf(c))}</span><div class="bd">${badges}</div><div class="info"><div class="nm">${esc(c.name)}</div><div class="an">${esc(c.anime || '')}</div></div></div>`;
+    return `<div class="${cls}" style="--c:${colorOf(c)}"><i class="bgfx"></i><div class="ci${c.duo ? ' duo' : ''}">${art}</div><i class="fx"></i><i class="glare"></i><i class="frame"></i>`
+        + `<span class="rr">${esc(labelOf(c))}</span><div class="bd">${badges}</div>`
+        + `<div class="info"><div class="nm">${esc(c.name)}</div><div class="meta"><span class="an">${esc(c.anime || '')}</span><span class="gems">${gemsOf(c)}</span></div></div></div>`;
 }
 // chances d'obtention
 const bigNum = n => n >= 1e12 ? 'plus de mille milliards' : n >= 1e9 ? (n / 1e9).toFixed(1).replace('.0', '').replace('.', ',') + (n >= 2e9 ? ' milliards' : ' milliard')
@@ -169,6 +174,7 @@ async function startOpen(p) {
     $('#op-god').classList.remove('on');
     $('.op-bar').classList.remove('on');
     $('#op-cards').innerHTML = '';
+    $('#op-sum').classList.remove('on'); $('#op-sum').innerHTML = '';
     $('#op-count').textContent = '';
     $('#op-luck').textContent = luckNow() > 1 ? `🍀 Chance x${luckNow()}` : '';
     pk.style.display = ''; pk.className = 'op-pack'; void pk.offsetWidth; pk.classList.add('arrive');
@@ -225,7 +231,7 @@ async function reveal() {
     const order = cards.map((x, i) => i).sort((a, b) => (RANK[cards[a].rarity] || 0) - (RANK[cards[b].rarity] || 0));
     box.innerHTML = order.map(i => {
         const x = cards[i], r = RANK[x.rarity] || 0;
-        return `<div class="slot" data-i="${i}" style="--c:${colorOf(x)}"><i class="pillar"></i><div class="in"><div class="back${r >= 3 ? ' glow' : ''}${r >= 5 ? ' mega' : ''}"><span>🎴</span></div>${cardHtml(x, { isNew: x.isNew, coins: x.coins })}</div></div>`;
+        return `<div class="slot rk-${rkOf(x)}" data-i="${i}" style="--c:${colorOf(x)}"><i class="halo"></i><i class="pillar"></i><div class="in"><div class="back t${Math.min(5, rkOf(x))}"><i class="emb"></i></div>${cardHtml(x, { isNew: x.isNew, coins: x.coins })}</div></div>`;
     }).join('');
     const slots = [...box.querySelectorAll('.slot')];
     slots.forEach((s, k) => {
@@ -245,43 +251,103 @@ async function reveal() {
         if (auto && opened === op) autoT = setTimeout(() => auto && startOpen(lastPack), 900);
     }
 }
-// retourner une carte ; les raretés spéciales ont droit à leur scène plein écran
+// retourner une carte : plus elle est rare, plus le suspense et l'effet sont forts
+const TEASE = [0, 180, 420, 760, 1000];
 async function turn(s, fast) {
     if (!opened || s.classList.contains('up') || s.classList.contains('turning')) return;
     const card = opened.cards[+s.dataset.i];
     if (!card) return;
-    const r = RANK[card.rarity] || 0;
+    const r = RANK[card.rarity] || 0, g = Math.min(4, Math.floor(r)), col = colorOf(card), box = $('#op-cards'), ov = $('#opening');
     s.classList.add('turning');
     if (r >= 5 && (!fast || r >= 6)) await cinematic(card, fast);
+    else if (!fast && g >= 1) {
+        // le dos de la carte tremble et s'illumine ; à partir de légendaire, le reste s'assombrit
+        const c0 = centerOf(s);
+        s.classList.add('tease');
+        if (g >= 3) { box.classList.add('focus'); s.classList.add('focus'); ov.classList.add('dim'); }
+        sfx(g >= 3 ? 'charge' : 'tick');
+        FX.implode(c0.x, c0.y, { count: 10 + g * 20, colors: [col, '#ffffff'], radius: 110 + g * 50, life: TEASE[g] });
+        await sleep(TEASE[g]);
+        s.classList.remove('tease');
+    }
+    if (!opened) return;
+    s.style.setProperty('--flip', (fast ? 0.4 : [0.45, 0.55, 0.65, 0.8, 0.95][g]) + 's');
     s.classList.remove('turning'); s.classList.add('up');
-    const c = centerOf(s), col = colorOf(card), rect = s.getBoundingClientRect();
-    if (r >= 3) { s.classList.add('lit'); FX.burst(c.x, c.y, { count: r >= 4 ? 90 : 50, colors: [col, '#ffffff'], speed: r >= 4 ? 8 : 6 }); FX.ring(c.x, c.y, col, 150, 500); }
-    else if (r >= 1) FX.burst(c.x, c.y, { count: 14, colors: [col], speed: 3, life: 700 });
-    if (card.shiny) FX.sparkle(rect, { count: 18 });
-    if (card.finish) FX.sparkle(rect, { count: 10, colors: ['#ffd700', '#ffffff'] });
-    if (r >= 4) { FX.shake($('#opening'), r >= 5 ? 8 : 5, 260); stamp(s, labelOf(card)); }
-    else if (card.isNew && r >= 2) stamp(s, 'Nouveau !');
-    sfx(r >= 5 ? 'epic' : r >= 3 ? 'rare' : 'flip');
+    const c = centerOf(s), rect = s.getBoundingClientRect(), k = fast ? 0.5 : 1;
+    if (r >= 5) {
+        s.classList.add('lit'); FX.burst(c.x, c.y, { count: 130 * k, colors: [col, '#ffffff', '#ffd700'], speed: 9 });
+        FX.ring(c.x, c.y, col, 220, 650); FX.shake(ov, 8 * k, 280); stamp(s, labelOf(card)); sfx('epic');
+    } else if (g === 4) { // mythique
+        s.classList.add('lit'); if (!fast) FX.flash($('#flash'), col, 450, 0.6);
+        FX.burst(c.x, c.y, { count: 170 * k, colors: [col, '#ffb300', '#39ff9a', '#00f0ff', '#ffffff'], speed: 10 });
+        FX.ring(c.x, c.y, col, 240, 700); FX.ring(c.x, c.y, '#ffffff', 140, 500);
+        if (!fast) FX.fireworks(2, [col, '#ffb300', '#ffffff']);
+        FX.shake(ov, 12 * k, 380); stamp(s, labelOf(card)); sfx('boom'); sfx('epic'); if (!fast) sfx('choir');
+    } else if (g === 3) { // légendaire
+        s.classList.add('lit'); if (!fast) FX.flash($('#flash'), col, 380, 0.45);
+        FX.burst(c.x, c.y, { count: 110 * k, colors: [col, '#fff3b0', '#ffffff'], speed: 8 });
+        FX.ring(c.x, c.y, col, 210, 650); FX.sparkle(rect, { count: 26 * k, colors: ['#ffd700', '#fff3b0', '#ffffff'] });
+        FX.shake(ov, 8 * k, 300); stamp(s, labelOf(card)); sfx('epic'); sfx('shimmer');
+    } else if (g === 2) { // épique
+        s.classList.add('lit');
+        FX.burst(c.x, c.y, { count: 60 * k, colors: [col, '#ffffff'], speed: 6 }); FX.ring(c.x, c.y, col, 150, 500);
+        FX.shake(ov, 3 * k, 200); stamp(s, labelOf(card)); sfx('rare');
+    } else if (g === 1) { // rare
+        FX.burst(c.x, c.y, { count: 30 * k, colors: [col, '#ffffff'], speed: 4.5, life: 800 }); FX.ring(c.x, c.y, col, 110, 450); sfx('chime');
+    } else { // commune
+        FX.burst(c.x, c.y, { count: 8, colors: ['#ffffff', '#cfd8ff'], speed: 2.5, life: 500 }); sfx('flip');
+    }
+    if (card.shiny) FX.sparkle(rect, { count: 18 * k });
+    if (card.finish) FX.sparkle(rect, { count: 12 * k, colors: ['#ffd700', '#ffffff'] });
+    if (card.isNew && g < 2 && r < 5) stamp(s, 'Nouveau !', true);
+    if (g >= 3 || r >= 5) setTimeout(() => { box.classList.remove('focus'); s.classList.remove('focus'); ov.classList.remove('dim'); }, fast ? 0 : 900);
+    if (opened && !box.querySelector('.slot:not(.up)')) showSummary();
 }
-function stamp(slot, text) {
+function stamp(slot, text, small) {
     const el = document.createElement('div');
-    el.className = 'stamp'; el.textContent = text;
+    el.className = 'stamp' + (small ? ' small' : ''); el.textContent = text;
     slot.appendChild(el);
     setTimeout(() => el.remove(), 1700);
 }
+// « Tout révéler » : une carte après l'autre, la caméra suit, pause plus longue après une belle carte
 async function flipAll(fast) {
     if (flipping) return;
     flipping = true;
-    try { for (const s of [...$('#op-cards').querySelectorAll('.slot:not(.up)')]) { if (!opened) break; await turn(s, fast); await sleep(fast ? 70 : 140); } }
-    finally { flipping = false; }
+    const btn = $('#op-flip'); btn.disabled = true;
+    try {
+        for (const s of [...$('#op-cards').querySelectorAll('.slot:not(.up)')]) {
+            if (!opened) break;
+            if (!fast) await bringIntoView(s);
+            await turn(s, fast);
+            const g = Math.min(5, Math.floor(RANK[((opened && opened.cards[+s.dataset.i]) || {}).rarity] || 0));
+            await sleep(fast ? 70 : [130, 170, 280, 560, 720, 520][g]);
+        }
+    } finally { flipping = false; btn.disabled = false; }
+}
+async function bringIntoView(s) {
+    const r = s.getBoundingClientRect();
+    if (r.top >= 0 && r.bottom <= innerHeight) return;
+    s.scrollIntoView({ block: 'center', behavior: FX.REDUCED ? 'auto' : 'smooth' });
+    await sleep(350);
+}
+// résumé du pack une fois tout révélé
+function showSummary() {
+    if (!opened || opened.summed) return;
+    opened.summed = true;
+    const cards = opened.cards, best = cards.reduce((b, c) => (RANK[c.rarity] || 0) > (RANK[b.rarity] || 0) ? c : b, cards[0]);
+    const news = cards.filter(c => c.isNew).length, coins = cards.reduce((t, c) => t + (c.coins || 0), 0);
+    const el = $('#op-sum');
+    el.innerHTML = `<span>Meilleure carte : <b style="color:${colorOf(best)}">${esc(labelOf(best))}</b> <i class="sum-gems" style="color:${colorOf(best)}">${gemsOf(best)}</i></span>`
+        + (news ? `<span>✨ ${news} nouvelle${news > 1 ? 's' : ''}</span>` : '<span>Aucune nouvelle carte</span>') + (coins ? `<span>+${fmt(coins)} 🪙 de doublons</span>` : '');
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
 }
 function cinematic(card, fast) {
     return new Promise(resolve => {
-        const cine = $('#cine'), r = RANK[card.rarity] || 0, col = colorOf(card), big = r >= 8;
+        const cine = $('#cine'), r = RANK[card.rarity] || 0, col = colorOf(card), big = r >= 8, huge = r >= 9.5;
         cine.style.setProperty('--c', col);
         cine.className = 'cine on t-' + (card.season || card.rarity) + (big ? ' big' : '');
         cine.innerHTML = `<div class="cine-bg"></div><div class="cine-rays"></div>
-          <div class="cine-card"><div class="cine-in"><div class="back"><span>🎴</span></div>${cardHtml(card, { flat: true })}</div></div>
+          <div class="cine-card"><div class="cine-in"><div class="back"><i class="emb"></i></div>${cardHtml(card, { flat: true })}</div></div>
           <div class="cine-title"><small>${card.season ? 'Carte de saison' : card.rarity === 'duo' ? 'Carte' : 'Rareté'}</small>${esc(labelOf(card))}</div>
           <div class="cine-sub">${esc(card.name)} · ${esc(card.anime || '')}</div><div class="cine-skip">Touche pour continuer</div>`;
         const cx = innerWidth / 2, cy = innerHeight / 2, T = [];
@@ -291,18 +357,19 @@ function cinematic(card, fast) {
             cine.classList.add('flip');
             FX.flash($('#flash'), col, 500, 1);
             FX.ring(cx, cy, col, 560, 900); FX.ring(cx, cy, '#ffffff', 320, 600);
-            FX.burst(cx, cy, { count: big ? 380 : 240, colors: [col, '#ffffff', '#ffd700'], speed: big ? 15 : 12, life: 1700 });
+            FX.burst(cx, cy, { count: huge ? 520 : big ? 380 : 240, colors: [col, '#ffffff', '#ffd700'], speed: huge ? 18 : big ? 15 : 12, life: 1700 });
+            if (huge) setTimeout(() => { FX.ring(cx, cy, '#ffffff', 700, 1100); FX.flash($('#flash'), '#ffffff', 600, 1); FX.shake(cine, 24, 600); sfx('boom'); }, 350);
             FX.shake(cine, big ? 20 : 12, 500);
             sfx('boom'); sfx('choir');
         }, fast ? 450 : 1050));
         T.push(setTimeout(() => {
             cine.classList.add('title');
-            FX.fireworks(big ? 9 : 4, [col, '#ffffff', '#ffd700', '#ff3c7a']);
+            FX.fireworks(huge ? 16 : big ? 9 : 4, [col, '#ffffff', '#ffd700', '#ff3c7a']);
             if (big) FX.rain({ colors: [col, '#ffffff', '#ffd700'], duration: 2500 });
         }, fast ? 650 : 1400));
         let done = false;
         const end = () => { if (done) return; done = true; T.forEach(clearTimeout); cine.className = 'cine'; cine.innerHTML = ''; cine.onclick = null; resolve(); };
-        T.push(setTimeout(end, fast ? 1700 : big ? 4600 : 3300));
+        T.push(setTimeout(end, fast ? 1700 : huge ? 5800 : big ? 4600 : 3300));
         cine.onclick = e => { e.stopPropagation(); if (cine.classList.contains('flip')) end(); };
     });
 }
@@ -601,6 +668,9 @@ function sfx(kind) {
         else if (kind === 'whoosh') noise(0.4, 'page', 400, 2600, 0.12, t);
         else if (kind === 'deal') { for (let i = 0; i < 4; i++) noise(0.12, 'page', 3000, 1200, 0.08, t + i * 0.08); }
         else if (kind === 'flip') noise(0.06, 'page', 4000, 2000, 0.07, t);
+        else if (kind === 'tick') tone(1600, t, 0.08, 0.05, 'square');
+        else if (kind === 'chime') [880, 1320].forEach((hz, i) => tone(hz, t + i * 0.07, 0.35, 0.1));
+        else if (kind === 'shimmer') { for (let i = 0; i < 8; i++) tone(2000 + i * 280, t + i * 0.045, 0.3, 0.035, 'sine'); }
         else if (kind === 'charge') { tone(180, t, 0.6, 0.08, 'sawtooth', 900); noise(0.6, 'page', 300, 3000, 0.06, t); }
         else if (kind === 'boom') { tone(140, t, 0.6, 0.35, 'sine', 38); noise(0.5, 'boom', 900, 120, 0.25, t); }
         else if (kind === 'choir') { [261.6, 329.6, 392, 523.3, 587.3].forEach((hz, i) => { tone(hz, t + i * 0.02, 1.6, 0.05, 'sawtooth'); tone(hz * 1.005, t, 1.6, 0.04, 'sawtooth'); }); }

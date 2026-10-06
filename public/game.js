@@ -205,6 +205,7 @@ function reveal() {
     const cards = opened.cards, pk = $('#op-pack'), box = $('#op-cards');
     pk.onclick = null;
     pk.classList.add('tear');
+    sfx('rip');
     setTimeout(() => {
         pk.style.display = 'none';
         if (cards.god) $('#op-god').classList.add('on');
@@ -212,7 +213,7 @@ function reveal() {
         const order = cards.map((c, i) => i).sort((a, b) => (RANK[cards[a].rarity] || 0) - (RANK[cards[b].rarity] || 0));
         box.innerHTML = order.map((i, k) => { const c = cards[i]; return `<div class="slot" style="animation-delay:${k * 60}ms"><div class="in">
           <div class="back ${RANK[c.rarity] >= 3 ? 'glow r-' + c.rarity : ''}">🎴</div>${cardHtml(c, { isNew: c.isNew, coins: c.coins })}</div></div>`; }).join('');
-        box.querySelectorAll('.slot').forEach(s => s.onclick = () => { if (s.classList.contains('up')) zoom(s.querySelector('.card').outerHTML); else s.classList.add('up'); });
+        box.querySelectorAll('.slot').forEach(s => s.onclick = () => { if (s.classList.contains('up')) zoom(s.querySelector('.card').outerHTML); else turn(s); });
         $('.op-bar').classList.add('on');
         $('#op-again').disabled = !!lastPack.free || S.coins < (lastPack.price || 0);
         const top = cards.reduce((m, c) => Math.max(m, RANK[c.rarity] || 0), 0);
@@ -220,7 +221,14 @@ function reveal() {
         if (auto) { flipAll(); autoT = setTimeout(() => auto && startOpen(lastPack), 1900); }
     }, 450);
 }
-function flipAll() { $('#op-cards').querySelectorAll('.slot:not(.up)').forEach((s, i) => setTimeout(() => s.classList.add('up'), i * 110)); }
+// retourner une carte : petit son si elle est très rare
+function turn(s) {
+    if (s.classList.contains('up')) return;
+    s.classList.add('up');
+    const r = RANK[(s.querySelector('.card').className.match(/\br-(\w+)/) || [])[1]] || 0;
+    if (r >= 5) sfx('epic'); else if (r >= 3) sfx('rare');
+}
+function flipAll() { $('#op-cards').querySelectorAll('.slot:not(.up)').forEach((s, i) => setTimeout(() => turn(s), i * 110)); }
 function next() { if (!lastPack || lastPack.free) return; if (opened && !opened.revealed) return reveal(); startOpen(lastPack); }
 function stopAuto() { auto = false; clearTimeout(autoT); $('#op-auto').classList.remove('on'); $('#op-auto').textContent = '▶ Auto'; }
 function closeOpen() { stopAuto(); $('#opening').classList.remove('on'); renderShop(); }
@@ -331,7 +339,8 @@ function renderLibrary() {
         const a = D.animes[b.u], name = b.special ? SPECIAL_BINDERS[b.u].name : a.name;
         const cover = b.special ? null : (a.cover || imgUrl(a.cards[0][2]));
         const col = !b.special && a.color ? `--bc:linear-gradient(160deg, ${a.color}, #1a1230)` : '';
-        return `<div class="binder-cv ${b.special ? 'special' : ''}" data-u="${esc(b.u)}" style="${col}">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : ''}
+        const art = cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : `<div class="col">${specialArt(b.u).map(s => `<img src="${esc(s)}" alt="" loading="lazy">`).join('')}</div>`;
+        return `<div class="binder-cv ${b.special ? 'special' : ''}" data-u="${esc(b.u)}" style="${col}">${art}
           <span class="bn">${b.own}/${b.tot}</span><div class="bt">${esc(name)}</div><div class="bp"><i style="width:${Math.round(b.own / Math.max(1, b.tot) * 100)}%"></i></div></div>`;
     }).join('');
     $('#lib-more').style.display = all.length > libShown ? '' : 'none';
@@ -341,17 +350,20 @@ $('#lib-search').oninput = () => { libShown = 60; renderLibrary(); };
 $('#lib-sort').onchange = renderLibrary;
 $('#lib-more').onclick = () => { libShown += 120; renderLibrary(); };
 
-let flip = null;
-function openBook(u) {
+let flip = null, bookU = null;
+const RINGS = '<div class="rings"><i></i><i></i><i></i></div>';
+function openBook(u, startPage) {
     const cards = binderCards(u), sp = SPECIAL_BINDERS[u], a = D.animes[u];
     const name = sp ? sp.name : a.name, own = cards.filter(c => S.cards[c.key]).length;
-    const color = !sp && a.color ? a.color : sp ? '#1d4b6b' : '#5a1d2a';
+    const color = !sp && a.color ? a.color : sp ? '#1d6b8a' : '#7a2236';
     const cover = sp ? null : (a.cover || imgUrl(a.cards[0][2]));
+    bookU = u;
     $('#book-title').textContent = name;
     $('#book-prog').textContent = `${own} / ${cards.length}`;
     const per = 9, inner = Math.max(2, Math.ceil(cards.length / per));
     const pages = [];
-    pages.push(`<div class="bpage bcover" data-density="hard"><div class="cv" style="--bc:${esc(color)}">${cover ? `<img src="${esc(cover)}" alt="">` : '<div style="font-size:70px">🎴</div>'}<h1>${esc(name)}</h1><p>${own} / ${cards.length} cartes</p></div></div>`);
+    const coverArt = cover ? `<img src="${esc(cover)}" alt="">` : `<div class="col">${specialArt(u).map(s => `<img src="${esc(s)}" alt="">`).join('')}</div>`;
+    pages.push(`<div class="bpage bcover" data-density="hard"><div class="cv" style="--bc:${esc(color)}"><div class="plate">${coverArt}</div><h1>${esc(name)}</h1><p>${own} / ${cards.length} cartes</p></div></div>`);
     for (let p = 0; p < inner + (inner % 2); p++) {
         const slice = cards.slice(p * per, p * per + per);
         const pockets = Array.from({ length: per }, (_, k) => {
@@ -359,13 +371,15 @@ function openBook(u) {
             if (!c) return '<div class="pocket empty"></div>';
             const o = S.cards[c.key], num = p * per + k + 1;
             if (!o) {
-                const sil = c.duo ? null : imgOf(c.u, c.name);
-                return `<div class="pocket empty" title="n°${num}">${sil ? `<img class="sil" src="${esc(sil)}" alt="" loading="lazy" draggable="false">` : ''}<b>${num}</b></div>`;
+                const ghost = c.duo ? null : imgOf(c.u, c.name);
+                const tier = RANK[c.rarity] >= 5 ? `<small class="r-${c.rarity}">${c.season ? esc(D.seasons[c.season].label) : RAR_LABEL[c.rarity]}</small>` : '';
+                return `<div class="pocket empty">${ghost ? `<img class="sil" src="${esc(ghost)}" alt="" loading="lazy" draggable="false">` : ''}<b>${num}</b>${tier}</div>`;
             }
             const cc = { ...c, shiny: o.shiny > 0, finish: o.fin };
-            return `<div class="pocket" data-i="${p * per + k}">${cardHtml(cc, { flat: true })}${o.n > 1 ? `<span class="cnt">x${o.n}</span>` : ''}</div>`;
+            // un <button> : la librairie ne tourne pas la page quand on touche une carte, on la zoome
+            return `<button class="pocket" data-i="${p * per + k}">${cardHtml(cc, { flat: true })}${o.n > 1 ? `<span class="cnt">x${o.n}</span>` : ''}</button>`;
         }).join('');
-        pages.push(`<div class="bpage ${p % 2 ? 'odd' : 'even'}"><div class="pg">${pockets}</div><div class="num">${p + 1}</div></div>`);
+        pages.push(`<div class="bpage ${p % 2 ? 'odd' : 'even'}">${RINGS}<div class="pg">${pockets}</div><div class="num">${p + 1}</div></div>`);
     }
     pages.push(`<div class="bpage bcover back" data-density="hard"><div class="cv" style="--bc:${esc(color)}"></div></div>`);
 
@@ -378,17 +392,51 @@ function openBook(u) {
     const h = stage.clientHeight - 12, w = stage.clientWidth;
     const portrait = w < 700;
     const pw = Math.floor(Math.min(portrait ? w - 8 : (w - 8) / 2, h / 1.38));
-    flip = new St.PageFlip(el, { width: pw, height: Math.floor(pw * 1.38), size: 'fixed', showCover: true, usePortrait: portrait, maxShadowOpacity: 0.6, flippingTime: 750, mobileScrollSupport: false, drawShadow: true });
+    flip = new St.PageFlip(el, { width: pw, height: Math.floor(pw * 1.38), size: 'fixed', showCover: true, usePortrait: portrait, maxShadowOpacity: 0.7, flippingTime: 800, mobileScrollSupport: false, drawShadow: true, startPage: startPage || 0 });
     flip.loadFromHTML(el.querySelectorAll('.bpage'));
-    const upd = () => { const i = flip.getCurrentPageIndex(), n = flip.getPageCount(); $('#book-page').textContent = i === 0 ? 'Couverture' : i >= n - 1 ? 'Fin' : `Page ${i} / ${n - 2}`; };
+    const upd = () => {
+        const i = flip.getCurrentPageIndex(), n = flip.getPageCount();
+        $('#book-page').textContent = i === 0 ? 'Couverture' : i >= n - 1 ? 'Dos' : portrait || i + 1 >= n - 1 ? `Page ${i} / ${n - 2}` : `Pages ${i}–${i + 1} / ${n - 2}`;
+    };
     flip.on('flip', upd); upd();
-    el.querySelectorAll('.pocket[data-i]').forEach(pk => {
-        let down = null;
-        pk.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
-        pk.addEventListener('pointerup', e => { if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 6) zoom(pk.querySelector('.card').outerHTML); down = null; });
-    });
+    flip.on('changeState', e => { if (e.data === 'flipping') sfx('page'); });
+    el.querySelectorAll('.pocket[data-i]').forEach(pk => pk.onclick = () => zoom(pk.querySelector('.card').outerHTML));
+    // le classeur s'ouvre tout seul
+    if (!startPage) setTimeout(() => { if (flip && bookU === u && flip.getCurrentPageIndex() === 0) flip.flipNext(); }, 650);
 }
-function closeBook() { $('#book').classList.remove('on'); if (flip) { try { flip.destroy(); } catch (_) {} flip = null; } renderLibrary(); }
+function closeBook() { bookU = null; $('#book').classList.remove('on'); if (flip) { try { flip.destroy(); } catch (_) {} flip = null; } renderLibrary(); }
+let resizeT = 0;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (bookU && flip) openBook(bookU, flip.getCurrentPageIndex() || 1); }, 250); });
+// 4 persos pour illustrer les classeurs spéciaux
+function specialArt(u) { return binderCards(u).slice(0, 12).map(c => c.duo ? c.duo[0] : imgOf(c.u, c.name)).filter(Boolean).slice(0, 4); }
+
+/* ---------- sons (générés, pas de fichiers) ---------- */
+let AC = null;
+function sfx(kind) {
+    if (S.muted) return;
+    try {
+        AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+        const t = AC.currentTime;
+        if (kind === 'page' || kind === 'rip') {
+            const len = kind === 'page' ? 0.32 : 0.45;
+            const buf = AC.createBuffer(1, AC.sampleRate * len, AC.sampleRate), d = buf.getChannelData(0);
+            for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (kind === 'rip' && Math.random() < 0.08 ? 1 : 0.5);
+            const src = AC.createBufferSource(); src.buffer = buf;
+            const f = AC.createBiquadFilter(); f.type = kind === 'page' ? 'bandpass' : 'highpass';
+            f.frequency.setValueAtTime(kind === 'page' ? 2200 : 1800, t); f.frequency.exponentialRampToValueAtTime(kind === 'page' ? 700 : 3500, t + len);
+            const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(kind === 'page' ? 0.22 : 0.3, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+            src.connect(f).connect(g).connect(AC.destination); src.start(t);
+        } else if (kind === 'rare' || kind === 'epic') {
+            const notes = kind === 'rare' ? [523, 659, 784] : [523, 659, 784, 1047, 1319];
+            notes.forEach((hz, i) => {
+                const o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle'; o.frequency.value = hz;
+                const s = t + i * 0.09; g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.15, s + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.5);
+                o.connect(g).connect(AC.destination); o.start(s); o.stop(s + 0.55);
+            });
+        }
+    } catch (_) {}
+}
+$('#mute').onclick = () => { S.muted = !S.muted; $('#mute').textContent = S.muted ? '🔇' : '🔊'; save(); };
 $('#book-close').onclick = closeBook;
 $('#book-prev').onclick = () => flip && flip.flipPrev();
 $('#book-next').onclick = () => flip && flip.flipNext();
@@ -425,6 +473,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 setInterval(renderFree, 30e3);
 
 load();
+$('#mute').textContent = S.muted ? '🔇' : '🔊';
 fetch('cards.json').then(r => r.json()).then(d => { D = d; prepare(); renderCoins(); renderShop(); })
     .catch(() => { $('#packs').textContent = 'Impossible de charger les cartes.'; });
 })();

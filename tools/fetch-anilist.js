@@ -52,25 +52,43 @@ const cached = async (name, fn) => {
     const franchises = [...fr.values()].map(list => list.sort((a, b) => b.popularity - a.popularity));
     console.log('franchises :', franchises.length);
 
-    // 3) persos : 1re page de chaque animé, puis plus de pages pour les grosses franchises
-    const chars = new Map(); // mediaId -> [persos]
-    const want = new Map();  // mediaId -> pages voulues
-    for (const list of franchises) {
-        const pop = list.reduce((s, m) => s + m.popularity, 0);
-        const pages = pop > 1500000 ? 12 : pop > 700000 ? 6 : pop > 300000 ? 3 : pop > 120000 ? 2 : 1;
-        list.forEach((m, i) => want.set(m.id, i === 0 ? pages : i < 4 ? Math.min(2, pages) : 1));
+    // 3) persos : on lit les pages tant qu'elles sont pleines, plus loin pour les grosses franchises
+    const pop = list => list.reduce((s, m) => s + m.popularity, 0);
+    franchises.sort((a, b) => pop(b) - pop(a));
+    const cap = new Map(); // mediaId -> nb max de pages de 25 persos
+    franchises.forEach((list, rank) => {
+        const root = rank < 40 ? 24 : rank < 120 ? 10 : rank < 400 ? 4 : 2;
+        list.forEach((m, i) => cap.set(m.id, i === 0 ? root : i < 4 ? Math.min(3, root) : 1));
+    });
+    // cache par (animé, page) : relu depuis les fichiers chars-<id>_<page>-….json déjà téléchargés
+    const pageCache = new Map();
+    for (const f of fs.readdirSync(CACHE).filter(f => /^chars-[\d_-]+\.json$/.test(f))) {
+        const ids = f.slice(6, -5).split('-'), d = JSON.parse(fs.readFileSync(path.join(CACHE, f), 'utf8'));
+        ids.forEach((k, i) => { if (d['m' + i]) pageCache.set(k, d['m' + i].characters.nodes); });
     }
-    const jobs = [];
-    for (const [id, pages] of want) for (let p = 1; p <= pages; p++) jobs.push([id, p]);
-    let done = 0;
-    for (let i = 0; i < jobs.length; i += 8) {
-        const part = jobs.slice(i, i + 8);
-        const key = 'chars-' + part.map(j => j.join('_')).join('-');
-        const d = await cached(key.length > 200 ? 'chars-' + require('crypto').createHash('md5').update(key).digest('hex') : key, () =>
-            gql(`{${part.map(([id, p], k) => `m${k}:Media(id:${id}){characters(sort:[FAVOURITES_DESC],perPage:25,page:${p}){nodes{id favourites name{full userPreferred} image{large}}}}`).join(' ')}}`));
-        part.forEach(([id], k) => { const n = d['m' + k] ? d['m' + k].characters.nodes : []; chars.set(id, (chars.get(id) || []).concat(n)); });
-        done += part.length;
-        if ((i / 8) % 20 === 0) console.log('persos :', done, '/', jobs.length);
+    console.log('pages de persos en cache :', pageCache.size);
+    const full = (id, p) => p === 0 || (pageCache.get(id + '_' + p) || []).length === 25;
+    for (let p = 1; p <= 24; p++) {
+        const jobs = [...cap].filter(([id, c]) => p <= c && full(id, p - 1) && !pageCache.has(id + '_' + p)).map(([id]) => [id, p]);
+        if (!jobs.length) continue;
+        console.log(`page ${p} : ${jobs.length} animés à lire`);
+        for (let i = 0; i < jobs.length; i += 8) {
+            const part = jobs.slice(i, i + 8);
+            const d = await cached('chars-' + part.map(j => j.join('_')).join('-'), () =>
+                gql(`{${part.map(([id, pg], k) => `m${k}:Media(id:${id}){characters(sort:[FAVOURITES_DESC],perPage:25,page:${pg}){nodes{id favourites name{full userPreferred} image{large}}}}`).join(' ')}}`));
+            part.forEach(([id, pg], k) => pageCache.set(id + '_' + pg, d['m' + k] ? d['m' + k].characters.nodes : []));
+            if ((i / 8) % 25 === 0) console.log('  persos :', Math.min(i + 8, jobs.length), '/', jobs.length);
+        }
+    }
+    const chars = new Map(); // mediaId -> [persos]
+    for (const [id, c] of cap) for (let p = 1; p <= c && pageCache.has(id + '_' + p); p++) chars.set(id, (chars.get(id) || []).concat(pageCache.get(id + '_' + p)));
+
+    // titre de la franchise : la 1re saison (série TV sans préquelle) plutôt qu'une suite
+    const clean = t => String(t || '').replace(/\s*\((TV|\d{4})\)\s*$/i, '').replace(/[\s:]+(Season\s*\d+|\d+(st|nd|rd|th)\s+Season|Final Season.*|Part\s*\d+)\s*$/i, '').trim();
+    function rootOf(list) {
+        const ids = new Set(list.map(m => m.id));
+        const firsts = list.filter(m => /^TV|ONA/.test(m.format || '') && !m.relations.edges.some(e => e.relationType === 'PREQUEL' && ids.has(e.node.id)));
+        return firsts[0] || list[0];
     }
 
     // 4) une liste par franchise, sans doublons, sans persos sans photo
@@ -86,10 +104,10 @@ const cached = async (name, fn) => {
         const cs = [...seen.values()].sort((a, b) => b.favourites - a.favourites);
         if (cs.length < 6) continue;
         cs.forEach(c => taken.add(c.id));
-        const top = list[0];
+        const top = rootOf(list);
         out.push({
-            id: top.id, title: top.title.english || top.title.romaji, romaji: top.title.romaji,
-            popularity: list.reduce((s, m) => s + m.popularity, 0), color: top.coverImage.color,
+            id: top.id, title: clean(top.title.english || top.title.romaji), romaji: clean(top.title.romaji),
+            popularity: pop(list), color: top.coverImage.color,
             cover: top.coverImage.extraLarge || top.coverImage.large, banner: top.bannerImage,
             chars: cs.map(c => ({ id: c.id, name: c.name.full || c.name.userPreferred, fav: c.favourites, img: c.image.large }))
         });

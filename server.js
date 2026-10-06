@@ -26,8 +26,17 @@ function pgSslFor(url) {
     } catch (_) {}
     return { rejectUnauthorized: false };
 }
+// si l'hébergeur n'a pas lancé « npm install » (Build Command vide), on installe le module une fois au démarrage
+function loadPg() {
+    try { return require('pg'); } catch (e) {
+        if (e.code !== 'MODULE_NOT_FOUND') throw e;
+        console.warn('[démarrage] module pg absent : installation automatique… (mets « npm install » comme Build Command sur Render pour éviter ça)');
+        require('child_process').execSync('npm install --omit=dev --no-audit --no-fund', { cwd: __dirname, stdio: 'inherit', timeout: 180000 });
+        return require('pg');
+    }
+}
 function pgStore(url) {
-    const { Pool } = require('pg');
+    const { Pool } = loadPg();
     const pool = new Pool({ connectionString: url, ssl: pgSslFor(url), max: 8 });
     const row = r => r ? { id: r.id, email: r.email, pseudo: r.pseudo, pass: r.pass, admin: r.admin, state: r.state, created: +new Date(r.created_at) } : null;
     const one = async (sql, args) => row((await pool.query(sql, args)).rows[0]);

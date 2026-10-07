@@ -18,6 +18,7 @@
   <nav>
     <button data-tab="shop" class="on">Boosters</button>
     <button data-tab="binder">Classeur</button>
+    <button data-tab="players" id="nav-players" style="display:none">Joueurs<span id="nav-trades" class="nav-badge" hidden></span></button>
     <button data-tab="stats">Stats</button>
     <button data-tab="admin" id="nav-admin" style="display:none">👑 Admin</button>
   </nav>
@@ -48,6 +49,10 @@
     </div>
     <h2 class="sec">Boosters</h2>
     <div id="packs" class="packs"></div>
+    <div id="theme-sec" hidden>
+      <h2 class="sec">Boosters à thème <small>5 cartes tirées dans tous les animés du thème</small></h2>
+      <div id="theme-packs" class="packs"></div>
+    </div>
     <h2 class="sec">Boosters par animé <small id="anime-count"></small></h2>
     <input id="anime-search" class="search" placeholder="Chercher un animé…">
     <div id="anime-packs" class="packs small"></div>
@@ -67,6 +72,22 @@
     <p id="lib-prog" class="prog"></p>
     <div id="library" class="library"></div>
     <button id="lib-more" class="btn more">Voir plus</button>
+  </section>
+
+  <section id="tab-players" class="tab">
+    <div id="pl-guest" class="pl-guest" hidden>
+      <div><b>Ton profil et les échanges</b><p>Crée un compte (gratuit) pour avoir ton profil, ta vitrine de cartes et échanger avec les autres joueurs.</p></div>
+      <button id="pl-signup" class="btn gold">Créer un compte</button>
+    </div>
+    <div id="pl-mine">
+      <h2 class="sec">👤 Mon profil</h2>
+      <div id="pl-me"></div>
+      <h2 class="sec">🔁 Mes échanges <small id="tr-count"></small></h2>
+      <div id="trades" class="trades"></div>
+    </div>
+    <h2 class="sec">🏅 Joueurs <small>les plus grosses collections</small></h2>
+    <input id="pl-search" class="search" placeholder="Chercher un joueur…">
+    <div id="players" class="players"></div>
   </section>
 
   <section id="tab-stats" class="tab">
@@ -162,6 +183,35 @@
     </form>
     <p class="auth-note">Avec un compte, ta collection est sauvegardée en ligne et tu la retrouves sur tous tes appareils.</p>
     <button id="auth-guest" class="link">Continuer en invité</button>
+  </div>
+</div>
+
+<div id="prof" class="modal">
+  <div class="modal-box prof-box"><button id="prof-x" class="modal-x" aria-label="Fermer">✕</button><div id="prof-body"></div></div>
+</div>
+
+<div id="trade" class="modal">
+  <div class="modal-box trade-box">
+    <button id="tb-x" class="modal-x" aria-label="Fermer">✕</button>
+    <h2 id="tb-title">🔁 Échange avec <b id="tb-who"></b></h2>
+    <div class="tb-sides">
+      <div class="tb-side"><h3>Tu donnes <small>5 max</small></h3><div id="tb-give" class="ti-cards"></div><button id="tb-add-give" class="btn">+ Ajouter</button></div>
+      <div class="tb-arrow" id="tb-arrow">⇄</div>
+      <div class="tb-side" id="tb-take-side"><h3>Tu demandes <small>5 max</small></h3><div id="tb-take" class="ti-cards"></div><button id="tb-add-take" class="btn">+ Ajouter</button></div>
+    </div>
+    <p id="tb-err" class="auth-err"></p>
+    <button id="tb-send" class="btn gold big">Envoyer la proposition</button>
+  </div>
+</div>
+
+<div id="pick" class="modal">
+  <div class="modal-box pick-box">
+    <button id="pick-x" class="modal-x" aria-label="Fermer">✕</button>
+    <h2 id="pick-title"></h2>
+    <div class="pick-tools"><input id="pick-q" class="search" placeholder="Chercher un perso ou un animé…"><label><input type="checkbox" id="pick-dup"> Doublons</label></div>
+    <div id="pick-grid" class="pick-grid"></div>
+    <button id="pick-more" class="btn more">Voir plus</button>
+    <div class="pick-foot"><span id="pick-sel"></span><button id="pick-ok" class="btn gold">Valider</button></div>
   </div>
 </div>
 

@@ -134,12 +134,55 @@ for (const d of extra.duo) {
     if (ra && rb) duos.push({ name: d.name, a: ra, b: rb });
 }
 
+// boosters à thème : genres et tags AniList de chaque franchise (tools/themes.json), méchants choisis à la main (tools/villains.json)
+const themes = {};
+if (fs.existsSync(T('themes.json'))) {
+    const meta = JSON.parse(fs.readFileSync(T('themes.json'), 'utf8'));
+    const RULES = {
+        shonen: m => (m.t.Shounen || 0) >= 70 && m.g.includes('Action'),
+        isekai: m => (m.t.Isekai || 0) >= 60,
+        romance: m => m.g.includes('Romance'),
+        mecha: m => m.g.includes('Mecha'),
+        sport: m => m.g.includes('Sports'),
+        horreur: m => m.g.includes('Horror'),
+        magical: m => m.g.includes('Mahou Shoujo'),
+        retro: m => m.y && m.y < 2000
+    };
+    for (const [t, rule] of Object.entries(RULES)) {
+        themes[t] = list.filter(f => meta[f.id] && keyOfId[f.id] && animes[keyOfId[f.id]] && rule(meta[f.id]))
+            .sort((a, b) => b.popularity - a.popularity).map(f => keyOfId[f.id]);
+    }
+}
+if (fs.existsSync(T('villains.json'))) {
+    const norm = s => deaccent(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const found = [], missing = [];
+    for (const [hint, names] of JSON.parse(fs.readFileSync(T('villains.json'), 'utf8'))) {
+        const hints = hint.split('|').map(norm);
+        const us = Object.keys(animes).filter(u => u !== 'pokedex' && hints.some(h => norm(u).includes(h) || norm(animes[u].name).includes(h))).sort((a, b) => animes[b].pop - animes[a].pop);
+        const alts = names.split('|');
+        let hit = null;
+        for (const u of us) {
+            const cards = animes[u].cards;
+            for (const alt of alts) {
+                const k = keyOf(alt), tk = tokens(alt);
+                let c = cards.find(c => keyOf(c[0]) === k);
+                if (!c && tk.length) c = cards.find(c => { const ct = tokens(c[0]); return tk.every(w => ct.includes(w)) && ct.length <= tk.length + 1; });
+                if (c) { hit = [u, c[0]]; break; }
+            }
+            if (hit) break;
+        }
+        if (hit && !found.some(f => f[0] === hit[0] && f[1] === hit[1])) found.push(hit); else if (!hit) missing.push(alts[0]);
+    }
+    themes.mechants = found;
+    console.log(`méchants : ${found.length} trouvés` + (missing.length ? `, introuvables : ${missing.join(', ')}` : ''));
+}
 let legacy = Object.fromEntries(Object.entries(legacyIds).map(([o, id]) => [o, keyOfId[id]]));
 // cartes de saison, Duos et animés d'Anime Game : exactement comme dans la version précédente
 if (V1) { seasons = oldCards.seasons; duos = oldCards.duos; legacy = oldCards.legacy; }
-const out = { v: 3, imgPrefix: IMG_PREFIX, animes, seasons, duos, legacy };
+const out = { v: 3, imgPrefix: IMG_PREFIX, animes, seasons, duos, legacy, themes };
 fs.writeFileSync(path.join(__dirname, '..', 'public', 'cards.json'), JSON.stringify(out));
 const total = Object.values(animes).reduce((s, a) => s + a.cards.length, 0);
 const waifus = Object.values(animes).reduce((s, a) => s + a.cards.filter(c => c[3]).length, 0);
+console.log('thèmes : ' + Object.entries(themes).map(([t, l]) => t + ' ' + l.length).join(', '));
 if (V1) console.log(`anciennes cartes gardées : ${kept}, nouveaux persos : ${added}`);
 console.log(`${Object.keys(animes).length} animés, ${total} persos dont ${waifus} waifus (${renamed} noms repris, ${used.size} animés d'Anime Game retrouvés), ${duos.length} duos, saisons : ${Object.entries(seasons).map(([k, s]) => k + ' ' + s.chars.length).join(', ')}`);

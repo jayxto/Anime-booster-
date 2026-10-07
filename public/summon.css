@@ -105,23 +105,35 @@
 .sm-slot.tease .sm-in { animation: smTease .09s linear infinite; }
 @keyframes smTease { 0%, 100% { translate: 0 0; rotate: 0deg; } 25% { translate: -2px 1px; rotate: -1.4deg; } 75% { translate: 2px -1px; rotate: 1.4deg; } }
 
-/* dos de carte du jeu */
-.emb { position: relative; width: 46%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 18px rgba(255,210,122,.35);
-  background: radial-gradient(circle, #241a55 56%, transparent 57%), conic-gradient(from 0deg, #ffd27a, #b8860b, #fff1c1, #b8860b, #ffd27a); }
-.emb::before { content: "AB"; font: 900 26px/1 system-ui, sans-serif; letter-spacing: 1px; background: linear-gradient(180deg, #fff3c4, #d4a017); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.sm-in > .back { border-radius: 10px; border: 3px solid #4a3f8a; display: grid; place-items: center; overflow: hidden; container-type: inline-size;
-  background: radial-gradient(circle, rgba(255,255,255,.08), transparent 60%), repeating-linear-gradient(45deg, rgba(255,215,140,.07) 0 2px, transparent 2px 12px), repeating-linear-gradient(-45deg, rgba(255,215,140,.07) 0 2px, transparent 2px 12px), linear-gradient(160deg, #2a1f66, #120d2e); }
-.sm-in > .back .emb::before { font-size: max(12px, 13cqw); }
-.sm-in > .back::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.22) 50%, transparent 70%); background-size: 250% 250%; animation: holo 3.2s linear infinite; }
-.sm-in > .back.t1 { border-color: color-mix(in srgb, var(--c) 75%, #4a3f8a); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 60%, transparent); }
-.sm-in > .back.t2 { border-color: var(--c); box-shadow: 0 0 16px var(--c), 0 0 34px color-mix(in srgb, var(--c) 45%, transparent); }
-.sm-in > .back.t3 { border-color: color-mix(in srgb, var(--c) 70%, #fff); box-shadow: 0 0 20px var(--c), 0 0 46px var(--c); }
-.sm-in > .back.t4 { border-color: #fff; box-shadow: 0 0 22px var(--c), 0 0 52px var(--c); }
-.sm-in > .back.t4::before, .sm-in > .back.t5::before { content: ""; position: absolute; inset: -2px; border-radius: inherit; padding: 3px; pointer-events: none;
+/* dos de carte : illustration dorée (dessinée dans summon.js), monogramme et nom dans la police du jeu */
+.sm-in > .back { border-radius: 10px; overflow: hidden; container-type: inline-size; background: var(--ab-back) center / 100% 100% no-repeat, #120b38;
+  box-shadow: 0 10px 22px rgba(0,0,0,.5); }
+.sm-in > .back .bk-glow { position: absolute; left: 50%; top: 47.14%; width: 76%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 22%, transparent) 0 44%, color-mix(in srgb, var(--c) 85%, #fff) 58%, color-mix(in srgb, var(--c) 40%, transparent) 70%, transparent 84%); }
+.sm-in > .back .bk-mono { position: absolute; left: 0; right: 0; top: 47.14%; translate: 0 -52%; text-align: center; font: 900 16.5cqw/1 "Cinzel", Georgia, "Times New Roman", serif; letter-spacing: .02em;
+  background: linear-gradient(170deg, #fff8dc 10%, #f0c862 42%, #a8731b 62%, #f7dc90 85%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.6)) drop-shadow(0 0 8px rgba(255,214,120,.3)); }
+.sm-in > .back .bk-name { position: absolute; left: 18%; right: 18%; top: 86.6%; translate: 0 -50%; text-align: center; white-space: nowrap; overflow: hidden;
+  font: 700 5.4cqw/1 "Cinzel", Georgia, serif; letter-spacing: .14em; text-transform: uppercase; color: #f3d27c; text-shadow: 0 1px 0 rgba(0,0,0,.7); }
+@container (max-width: 96px) { .sm-in > .back .bk-name { display: none; } }
+/* reflet qui balaie le dos */
+.sm-in > .back::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light;
+  background: linear-gradient(115deg, transparent 32%, rgba(255,255,255,.55) 46%, rgba(255,240,200,.25) 52%, transparent 64%); background-size: 280% 100%; animation: sheen 4.2s ease-in-out infinite; }
+/* la rareté se devine : lueur au cœur du médaillon et autour de la carte */
+.sm-in > .back.t1 .bk-glow { opacity: .4; }
+.sm-in > .back.t2 .bk-glow { opacity: .6; animation: bkGlow 2s ease-in-out infinite; }
+.sm-in > .back:is(.t3, .t4, .t5) .bk-glow { opacity: .85; animation: bkGlow 1.3s ease-in-out infinite; }
+@keyframes bkGlow { 50% { transform: scale(1.12); opacity: 1; } }
+.sm-in > .back.t1 { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c) 70%, transparent), 0 0 12px color-mix(in srgb, var(--c) 55%, transparent); }
+.sm-in > .back.t2 { box-shadow: 0 0 0 2px var(--c), 0 0 16px var(--c), 0 0 34px color-mix(in srgb, var(--c) 45%, transparent); }
+.sm-in > .back.t3 { box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 70%, #fff), 0 0 20px var(--c), 0 0 46px var(--c); }
+.sm-in > .back.t4 { box-shadow: 0 0 0 2px #fff, 0 0 22px var(--c), 0 0 52px var(--c); }
+.sm-in > .back.t5 { box-shadow: 0 0 0 2px #fff, 0 0 26px #fff, 0 0 60px var(--c); }
+.sm-in > .back.t4 .bk-glow, .sm-in > .back.t5 .bk-glow { background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a);
+  -webkit-mask: radial-gradient(closest-side, transparent 46%, #000 58%, #000 66%, transparent 82%); mask: radial-gradient(closest-side, transparent 46%, #000 58%, #000 66%, transparent 82%); animation: bkGlow 1.3s ease-in-out infinite, ang 2.4s linear infinite; }
+.sm-in > .back.t4::before, .sm-in > .back.t5::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 3px; pointer-events: none; z-index: 1;
   background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: ang 2.2s linear infinite; }
-.sm-in > .back.t5 { border-color: #fff; box-shadow: 0 0 26px #fff, 0 0 60px var(--c);
-  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--c) 45%, transparent), transparent 62%), repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 2px, transparent 2px 12px), linear-gradient(160deg, #2a1f66, #0b0820); }
 .sm-in > .back.t5::before { padding: 4px; animation-duration: 1.4s; }
 
 /* auras de rareté (cartes face cachée) : plus la carte est rare, plus ça brûle */
@@ -174,7 +186,7 @@
 .sm-big .sm-in > .back { container-type: inline-size; }
 .sm-big.up .sm-flames, .sm-big.up .sm-halo, .sm-big.up .sm-aura { opacity: 0; transition: opacity .35s; }
 .sm-big.charge .sm-in { animation: smTease .07s linear infinite; }
-.sm-big.charge .sm-in > .back { filter: brightness(1.5); }
+.sm-big.charge .sm-in > .back { filter: brightness(1.35) saturate(1.2); }
 .sm-banner { position: absolute; left: 0; right: 0; top: var(--bt); z-index: 4; display: grid; justify-items: center; padding: 0 12px; pointer-events: none; opacity: 0; text-align: center; }
 .sm-banner small { display: block; font: 800 clamp(11px, 1.6vw, 14px)/1 system-ui, sans-serif; letter-spacing: .45em; padding-left: .45em; color: color-mix(in srgb, var(--c) 45%, #fff); margin-bottom: 8px; text-shadow: 0 0 10px var(--c); }
 .sm-banner b { display: block; font: 900 clamp(30px, 7.4vw, 76px)/1 "Cinzel", Georgia, "Times New Roman", serif; letter-spacing: .06em; color: #fff; white-space: nowrap;
@@ -228,3 +240,10 @@
 @media (prefers-reduced-motion: reduce) {
   .sm-float, .sm-flames i, .sm-aura, .sm-halo, .sm-bg .sm-fog, .sm-pack .pk-in { animation: none !important; }
 }
+
+/* « Tout révéler » : la rareté de la meilleure carte s'affiche au-dessus du cercle, sans rien bloquer */
+.sm-callout { position: absolute; left: 50%; z-index: 45; translate: -50% -50%; width: max-content; max-width: calc(100% - 24px); display: grid; justify-items: center; gap: 5px; padding: 22px clamp(28px, 6vw, 80px); text-align: center; pointer-events: none; opacity: 0;
+  background: radial-gradient(closest-side, rgba(4,3,12,.86), rgba(4,3,12,.6) 60%, transparent); }
+.sm-callout small { font: 800 clamp(10px, 1.5vw, 13px)/1 system-ui, sans-serif; letter-spacing: .4em; padding-left: .4em; text-transform: uppercase; color: color-mix(in srgb, var(--c) 45%, #fff); text-shadow: 0 0 10px var(--c); }
+.sm-callout b { font: 900 clamp(26px, 5vw, 54px)/1.05 "Cinzel", Georgia, serif; letter-spacing: .05em; color: #fff; white-space: nowrap; text-shadow: 0 0 16px var(--c), 0 0 38px var(--c), 0 3px 0 color-mix(in srgb, var(--c) 45%, #000); }
+.sm-callout span { font: 800 clamp(13px, 1.8vw, 16px)/1.2 system-ui, sans-serif; color: #fff; text-shadow: 0 2px 8px #000; }

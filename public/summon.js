@@ -174,8 +174,69 @@ function circleSvg() {
     return { outer: svg(outer), sigil: svg(sigil), inner: svg(inner) };
 }
 
+
+/* ---------- dos de carte : illustration dessinée une fois (SVG), posée en fond de chaque dos ---------- */
+function cardBackSvg() {
+    const P = (r, a, cx = 250, cy = 330) => [(cx + r * Math.cos(a * Math.PI / 180)).toFixed(1), (cy + r * Math.sin(a * Math.PI / 180)).toFixed(1)];
+    // rayons qui partent du médaillon
+    let rays = '';
+    for (let i = 0; i < 36; i++) { const a = i * 10, [x1, y1] = P(560, a - 2.2), [x2, y2] = P(560, a + 2.2); rays += `<path d="M250 330L${x1} ${y1}L${x2} ${y2}Z"/>`; }
+    // graduations autour du médaillon
+    let ticks = '';
+    for (let i = 0; i < 72; i++) { const a = i * 5, [x1, y1] = P(150, a), [x2, y2] = P(i % 3 ? 156 : 161, a); ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; }
+    // étoile à huit branches
+    const star = (ro, ri, rot = 0) => Array.from({ length: 16 }, (_, i) => P(i % 2 ? ri : ro, rot - 90 + i * 22.5).join(',')).join(' ');
+    const tips = Array.from({ length: 8 }, (_, i) => { const [x, y] = P(141, -90 + i * 45); return `<circle cx="${x}" cy="${y}" r="4.5" fill="url(#g)"/>`; }).join('');
+    const dots = Array.from({ length: 24 }, (_, i) => { const [x, y] = P(108, i * 15); return `<circle cx="${x}" cy="${y}" r="${i % 2 ? 1.4 : 2.4}"/>`; }).join('');
+    // ornement d'angle (dessiné en haut à gauche puis retourné pour les trois autres)
+    const corner = `<path d="M30 112C30 64 64 30 112 30" stroke-width="2.4"/><path d="M44 96C44 66 66 44 96 44" stroke-width="1.2"/>`
+        + `<path d="M52 40l12 12-12 12-12-12z" fill="url(#g)" stroke="none"/><path d="M40 52l12 12" stroke-width="1"/>`
+        + `<circle cx="112" cy="30" r="3.5" fill="url(#g)" stroke="none"/><circle cx="30" cy="112" r="3.5" fill="url(#g)" stroke="none"/>`
+        + `<path d="M66 66q22 6 34 30M66 66q6 22 30 34" stroke-width="1.4"/>`;
+    const corners = ['', 'translate(500 0) scale(-1 1)', 'translate(0 700) scale(1 -1)', 'translate(500 700) scale(-1 -1)'].map(t => `<g transform="${t}">${corner}</g>`).join('');
+    const sideGem = x => `<path d="M${x} 330l10 14-10 14-10-14z" fill="url(#g)"/><path d="M${x} 270v44M${x} 374v44" stroke="url(#g)" stroke-width="1.4"/>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700"><defs>`
+        + `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff5d1"/><stop offset=".28" stop-color="#e9bf5c"/><stop offset=".5" stop-color="#a5711a"/><stop offset=".74" stop-color="#f6d887"/><stop offset="1" stop-color="#b78427"/></linearGradient>`
+        + `<linearGradient id="bg" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#2a1d72"/><stop offset=".5" stop-color="#160f45"/><stop offset="1" stop-color="#090619"/></linearGradient>`
+        + `<radialGradient id="gl" cx=".5" cy=".471" r=".55"><stop offset="0" stop-color="#9b7bff" stop-opacity=".6"/><stop offset=".35" stop-color="#5b3fd6" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`
+        + `<radialGradient id="core" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#3a2a8f"/><stop offset=".7" stop-color="#170f45"/><stop offset="1" stop-color="#0c0828"/></radialGradient>`
+        + `<pattern id="lat" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(45 250 330)"><path d="M0 0H30M0 0V30" stroke="#e9bf5c" stroke-opacity=".11" fill="none"/><circle cx="15" cy="15" r="1.2" fill="#e9bf5c" fill-opacity=".2"/></pattern>`
+        + `<clipPath id="in"><rect x="30" y="30" width="440" height="640" rx="16"/></clipPath></defs>`
+        + `<rect width="500" height="700" rx="28" fill="#07051a"/><rect x="12" y="12" width="476" height="676" rx="24" fill="url(#bg)"/>`
+        + `<g clip-path="url(#in)"><rect width="500" height="700" fill="url(#lat)"/><g fill="#f3d27c" fill-opacity=".055">${rays}</g><rect width="500" height="700" fill="url(#gl)"/></g>`
+        // cadre doré
+        + `<rect x="13" y="13" width="474" height="674" rx="24" fill="none" stroke="url(#g)" stroke-width="9"/>`
+        + `<rect x="28" y="28" width="444" height="644" rx="16" fill="none" stroke="url(#g)" stroke-width="2.2"/>`
+        + `<rect x="37" y="37" width="426" height="626" rx="11" fill="none" stroke="#e9bf5c" stroke-opacity=".5" stroke-dasharray="1.5 6" stroke-linecap="round" stroke-width="1.6"/>`
+        + `<g fill="none" stroke="url(#g)">${corners}</g>${sideGem(28)}${sideGem(472)}`
+        // en haut : petit losange et filets
+        + `<path d="M140 78H218M282 78H360" stroke="url(#g)" stroke-width="1.6"/><path d="M250 60l18 18-18 18-18-18z" fill="url(#g)"/><path d="M250 70l8 8-8 8-8-8z" fill="#120b38"/>`
+        + `<circle cx="132" cy="78" r="3" fill="url(#g)"/><circle cx="368" cy="78" r="3" fill="url(#g)"/>`
+        // médaillon central
+        + `<circle cx="250" cy="330" r="172" fill="none" stroke="url(#g)" stroke-width="1" stroke-opacity=".55"/>`
+        + `<g stroke="url(#g)" stroke-width="1.3">${ticks}</g><circle cx="250" cy="330" r="148" fill="none" stroke="url(#g)" stroke-width="2.6"/>`
+        + `<polygon points="${star(136, 104, 22.5)}" fill="#120b38" fill-opacity=".55" stroke="url(#g)" stroke-width="1.2" stroke-opacity=".7"/>`
+        + `<polygon points="${star(136, 100)}" fill="#160e44" stroke="url(#g)" stroke-width="2.4" stroke-linejoin="round"/>${tips}`
+        + `<g fill="#e9bf5c" fill-opacity=".85">${dots}</g>`
+        + `<circle cx="250" cy="330" r="92" fill="url(#core)" stroke="url(#g)" stroke-width="6"/><circle cx="250" cy="330" r="80" fill="none" stroke="url(#g)" stroke-width="1.2"/>`
+        // en bas : banderole pour le nom du jeu
+        + `<path d="M96 582H404L420 606L404 630H96L80 606Z" fill="#120b38" stroke="url(#g)" stroke-width="2.6" stroke-linejoin="round"/>`
+        + `<path d="M104 590H396L407 606L396 622H104L93 606Z" fill="none" stroke="#e9bf5c" stroke-opacity=".55" stroke-width="1"/>`
+        + `<path d="M250 646l9 9-9 9-9-9z" fill="url(#g)"/><path d="M170 655H232M268 655H330" stroke="url(#g)" stroke-width="1.2"/>`
+        + `</svg>`;
+}
+let backReady = false;
+function installCardBack() {
+    if (backReady) return;
+    backReady = true;
+    document.documentElement.style.setProperty('--ab-back', `url("data:image/svg+xml,${encodeURIComponent(cardBackSvg())}")`);
+}
+// dos de carte : l'illustration + le monogramme et le nom (police du jeu) + une lueur de la couleur de la rareté
+const backHtml = lv => `<div class="back t${Math.min(5, lv)}"><i class="bk-glow"></i><b class="bk-mono">AB</b><span class="bk-name">Anime Boosters</span></div>`;
+
 function create(o) {
     const stage = o.stage, ui = o.ui;
+    installCardBack();
     const audio = makeAudio(o.muted || (() => false));
     const glow = makeGlow(o.canvas);
     const hint = t => { if (o.hint) o.hint.textContent = t || ''; };
@@ -315,7 +376,7 @@ function create(o) {
         run = new Run();
         glow.clear(); glowS.clear(); clearInterval(ambT); o.root.classList.remove('spotting');
         slotsBox.innerHTML = ''; pillarsBox.innerHTML = ''; spot.className = 'sm-spot'; spot.innerHTML = '';
-        floor.querySelectorAll('.f-wave').forEach(w => w.remove());
+        floor.querySelectorAll('.f-wave').forEach(w => w.remove()); stage.querySelectorAll('.sm-callout').forEach(c => c.remove());
         stage.querySelectorAll('.sm-pack').forEach(p => p.remove());
         runes.forEach(b => b.classList.remove('on'));
         stage.classList.remove('awake', 'lit', 'rainbow', 'quick');
@@ -474,7 +535,7 @@ function create(o) {
         const e = el('div', `sm-slot l${lv}`);
         e.style.setProperty('--c', col); e.style.setProperty('--bd', (-Math.random() * 3.4).toFixed(2) + 's');
         e.tabIndex = 0; e.setAttribute('role', 'button'); e.setAttribute('aria-label', 'Carte face cachée : touche pour la retourner');
-        e.innerHTML = `<i class="sm-pool"></i><div class="sm-float"><div class="sm-tilt">${auraHtml(lv)}<div class="sm-in"><div class="back t${Math.min(5, lv)}"><i class="emb"></i></div><div class="face">${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div></div></div>`;
+        e.innerHTML = `<i class="sm-pool"></i><div class="sm-float"><div class="sm-tilt">${auraHtml(lv)}<div class="sm-in">${backHtml(lv)}<div class="face">${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div></div></div>`;
         slotsBox.append(e);
         const sl = { el: e, card, ci, lvl: lv, rank: r, color: col, up: false, busy: false };
         run.on(e, 'click', () => onSlot(sl));
@@ -516,16 +577,17 @@ function create(o) {
         if (sl.card.isNew && sl.lvl < 3 && !fast) { const t = el('div', 'sm-new', 'Nouveau !'); sl.el.querySelector('.sm-tilt').append(t); setTimeout(() => t.remove(), 1900); }
         checkDone();
     }
-    function revealFx(sl, fast) {
+    // silent : quand toutes les cartes se retournent ensemble, un seul son pour tout le pack
+    function revealFx(sl, fast, silent) {
         const c = centerOf(sl.el), lv = sl.lvl;
-        if (lv === 0) { audio.swish(); if (!fast) glow.flare(c.x, c.y, L.w * 0.7, '#cfd8ff', 380, 0.25); }
-        else if (lv === 1) { audio.swish(); audio.chime(988, 0.09); glow.flare(c.x, c.y, L.w * 1.3, sl.color, 600, 0.55); glow.ring(sl.fx, sl.fy, L.w * 0.9, sl.color, 600, 0.4); }
+        if (lv === 0) { if (!silent) audio.swish(); if (!fast) glow.flare(c.x, c.y, L.w * 0.7, '#cfd8ff', 380, 0.25); }
+        else if (lv === 1) { if (!silent) { audio.swish(); audio.chime(988, 0.09); } glow.flare(c.x, c.y, L.w * 1.3, sl.color, 600, 0.55); glow.ring(sl.fx, sl.fy, L.w * 0.9, sl.color, 600, 0.4); }
         else {
-            audio.swish(); audio.chord(lv); if (lv >= 3) audio.boom(0.35);
+            if (!silent) { audio.swish(); audio.chord(lv); if (lv >= 3) audio.boom(0.35); }
             glow.flare(c.x, c.y, L.w * (1.6 + lv * 0.2), sl.color, 800, 0.75); glow.ring(sl.fx, sl.fy, L.w * 1.5, sl.color, 800, 0.55);
-            if (!fast) { shake(2 + lv, 240); glow.orbs(6 + lv * 3, sl.color, { x: c.x - L.w * 0.6, y: c.y - L.w * 0.4, w: L.w * 1.2, h: L.w * 0.9 }, { rise: 0.6, max: 12, life: 2400 }); }
+            if (!fast) { if (!silent) shake(2 + lv, 240); glow.orbs(6 + lv * 3, sl.color, { x: c.x - L.w * 0.6, y: c.y - L.w * 0.4, w: L.w * 1.2, h: L.w * 0.9 }, { rise: 0.6, max: 12, life: 2400 }); }
         }
-        if (sl.card.finish || sl.card.shiny) { audio.shimmer(5); glow.orbs(8, '#fff3c4', { x: c.x - L.w * 0.5, y: c.y - L.w * 0.7, w: L.w, h: L.w * 1.4 }, { rise: 0.25, min: 3, max: 7, life: 1600 }); }
+        if (sl.card.finish || sl.card.shiny) { if (!silent) audio.shimmer(5); glow.orbs(8, '#fff3c4', { x: c.x - L.w * 0.5, y: c.y - L.w * 0.7, w: L.w, h: L.w * 1.4 }, { rise: 0.25, min: 3, max: 7, life: 1600 }); }
     }
 
     /* ----- la grande scène des raretés légendaires et au-delà ----- */
@@ -546,7 +608,7 @@ function create(o) {
         spot.style.setProperty('--c', col); spot.style.setProperty('--sy', sy + 'px'); spot.style.setProperty('--syp', (sy / H * 100).toFixed(1) + '%'); spot.style.setProperty('--bw', bw + 'px');
         spot.style.setProperty('--bt', (sy - bh / 2 - bannerH + 4) + 'px'); spot.style.setProperty('--st', (sy + bh / 2 + 14) + 'px');
         spot.innerHTML = `<div class="sp-dim"></div><div class="sp-pillar"></div><div class="sp-rays"></div><div class="sp-glow"></div>
-          <div class="sm-big l${lv}" style="--c:${col}">${auraHtml(lv)}<div class="sm-in"><div class="back t${Math.min(5, lv)}"><i class="emb"></i></div><div class="face">${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div></div>
+          <div class="sm-big l${lv}" style="--c:${col}">${auraHtml(lv)}<div class="sm-in">${backHtml(lv)}<div class="face">${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div></div>
           <div class="sm-banner ${lv <= 4 ? 'ribbon' : ''}">${smallTxt ? `<small>${esc(smallTxt)}</small>` : ''}<b>${esc(label)}</b></div>
           <div class="sm-sub"><div class="nm">${esc(card.name)}</div><div class="an">${esc(card.anime || '')}</div><div class="chips">${odds ? `<span class="odds">🎲 ${esc(odds)}</span>` : ''}${fin ? `<span>${esc(fin)}</span>` : ''}${card.shiny ? '<span>✨ Brillante</span>' : ''}${card.isNew ? '<span style="color:#39ff9a">Nouvelle !</span>' : ''}</div><div class="sm-skip">Touche pour continuer</div></div>`;
         spot.insertBefore(cvSpot, spot.querySelector('.sm-big')); glowS.size();
@@ -627,6 +689,44 @@ function create(o) {
         if (cur.slots.every(s => s.up)) { cur.done = true; hint(''); if (o.onDone) o.onDone(); }
     }
     // « Tout révéler » : une carte après l'autre, de la moins rare à la plus rare
+    // toutes les cartes se retournent d'un coup : un frisson commun, puis un seul éclair dans la couleur de la meilleure
+    async function massReveal(list, fast) {
+        const R = run, best = list.reduce((b, s) => s.rank > b.rank ? s : b, list[0]), top = best.lvl, col = top >= 1 ? best.color : '#cfd8ff';
+        list.forEach(s => { s.busy = true; s.el.classList.remove('hot'); s.el.classList.add('tease'); });
+        setLit(top >= 1 ? best.color : NEUTRAL); setPower(0.9);
+        if (!fast) { audio.riser(0.45 + top * 0.04, 0.08); glow.spiral(L.cx, L.cy, L.rx * 1.05, L.k, 14 + top * 4, col, 520); }
+        try { await R.wait(fast ? 110 : 420); }
+        finally { list.forEach(s => { s.el.classList.remove('tease'); s.busy = false; }); }
+        list.forEach(s => {
+            s.el.style.setProperty('--flip', fast ? '.38s' : '.62s');
+            s.el.classList.add('up'); s.up = true;
+            s.el.setAttribute('aria-label', `${o.labelOf(s.card)} : ${s.card.name}`);
+        });
+        // un seul grand effet pour tout le pack
+        flash(col, L.cx, L.cy, fast ? 0.3 : Math.min(0.85, 0.45 + top * 0.06), fast ? 320 : 560);
+        glow.flare(L.cx, L.cy, Math.max(L.W, L.H) * (0.25 + top * 0.04), col, fast ? 600 : 1000, 0.8);
+        wave(col, 3.4, fast ? 600 : 950); if (top >= 5 && !fast) setTimeout(() => !R.dead && wave('#ffffff', 2.6, 700, true), 120);
+        shake(fast ? 2 : 3 + top * 1.5, 380);
+        audio.whoosh(0.35, 0.16); audio.swish(); audio.boom(0.4 + top * 0.08); audio.chord(top);
+        if (list.some(s => s.card.finish || s.card.shiny)) audio.shimmer(6 + top);
+        if (top >= 4 && !fast) audio.choir(top >= 6 ? 147 : 196, 2.8, 0.05);
+        list.forEach(s => revealFx(s, fast, true));
+        // la meilleure carte est mise en avant, sa rareté s'affiche au-dessus du cercle sans rien bloquer
+        if (top >= 3) callout(best, fast);
+        await R.wait(fast ? 380 : 700);
+        setPower(0.55);
+    }
+    function callout(sl, fast) {
+        const R = run, c = el('div', 'sm-callout', `<small>${sl.card.season ? 'Carte de saison' : sl.lvl >= 5 ? 'Rareté spéciale' : 'Meilleure carte'}</small><b>${esc(o.labelOf(sl.card))}</b><span>${esc(sl.card.name)}</span>`);
+        c.style.setProperty('--c', sl.color); c.style.top = L.cy + 'px';
+        stage.append(c);
+        R.fire(sl.el.querySelector('.sm-tilt'), [{ transform: 'none' }, { transform: 'translateY(-10%) scale(1.14)', offset: 0.3 }, { transform: 'translateY(-10%) scale(1.14)', offset: 0.7 }, { transform: 'none' }], { duration: fast ? 900 : 1800, easing: 'cubic-bezier(.3,1.3,.5,1)' });
+        const a = R.fire(c, [{ opacity: 0, transform: 'scale(1.8)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)', offset: 0.18 }, { opacity: 1, offset: 0.8 }, { opacity: 0, transform: 'translateY(-14px)' }], { duration: fast ? 1200 : 2400, easing: 'cubic-bezier(.2,1,.3,1)', fill: 'forwards' });
+        if (a) a.finished.then(() => c.remove(), () => c.remove()); else c.remove();
+        const p = centerOf(sl.el);
+        glow.flare(p.x, p.y, L.w * 2.6, sl.color, 1100, 0.7); glow.ring(sl.fx, sl.fy, L.w * 2.2, sl.color, 900, 0.6);
+        if (!fast) glow.orbs(14 + sl.lvl * 2, sl.color, { x: p.x - L.w, y: p.y - L.w * 0.8, w: L.w * 2, h: L.w * 1.6 }, { rise: 0.7, max: 16, life: 3000 });
+    }
     async function revealAll(fast) {
         if (!cur || !cur.slots || cur.allRunning) return;
         cur.allRunning = true; hint('');
@@ -634,12 +734,10 @@ function create(o) {
         try {
             if (cur.skipSpot) cur.skipSpot();
             while (cur.spot) await R.wait(80);
-            const hidden = cur.slots.filter(s => !s.up).sort((a, b) => a.rank - b.rank);
-            for (const s of hidden) {
-                if (s.up || s.busy) continue;
-                await flip(s, fast || cur.auto, true);
-                await R.wait(fast || cur.auto ? 70 : [120, 170, 240, 320, 360, 320, 320, 320, 320][s.lvl]);
-            }
+            const hidden = cur.slots.filter(s => !s.up && !s.busy);
+            if (hidden.length) await massReveal(hidden, fast || cur.auto);
+            while (cur.slots.some(s => s.busy)) await R.wait(60);
+            checkDone();
         } catch (e) { if (e !== STOP) throw e; }
         finally { if (cur && run === R) cur.allRunning = false; }
     }
@@ -648,7 +746,7 @@ function create(o) {
         run = null; cur = null;
         clearInterval(ambT); glow.clear(); glowS.clear(); audio.ambient(false); o.root.classList.remove('spotting');
         slotsBox.innerHTML = ''; pillarsBox.innerHTML = ''; spot.className = 'sm-spot'; spot.innerHTML = '';
-        stage.querySelectorAll('.sm-pack').forEach(p => p.remove());
+        stage.querySelectorAll('.sm-pack, .sm-callout').forEach(p => p.remove());
         runes.forEach(b => b.classList.remove('on'));
         stage.classList.remove('awake', 'lit', 'rainbow', 'quick'); setPower(0); setLit(NEUTRAL); speed(1);
     }

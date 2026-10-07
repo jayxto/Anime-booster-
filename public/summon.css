@@ -1,0 +1,223 @@
+/* Anime Boosters — ouverture « Cercle d'invocation ».
+   Le cercle est peint au sol (vu en perspective), les cartes flottent autour, l'aura de chaque carte
+   face cachée trahit sa rareté. Rien que de la lumière douce : pas de confettis, pas de traits. */
+@property --lit { syntax: '<color>'; inherits: true; initial-value: #9fd0ff; }
+
+.opening { position: fixed; inset: 0; z-index: 50; display: none; overflow: hidden; background: #05040b; color: var(--txt);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.opening.on { display: block; }
+.sm-stage { --lit: #9fd0ff; --pw: 0; position: absolute; inset: 0; overflow: hidden; transition: --lit 1s ease; }
+.sm-stage.quick { transition-duration: .35s; }
+.sm-glow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; mix-blend-mode: screen; }
+
+/* ---------- décor : salle sombre, brume, sol de pierre ---------- */
+.sm-bg { position: absolute; inset: 0; background: radial-gradient(120% 95% at 50% 38%, #1c1440, #0a0718 58%, #020106); }
+.sm-bg::before { content: ""; position: absolute; inset: 0; opacity: .5; mix-blend-mode: overlay;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.sm-bg .sm-tint { position: absolute; inset: 0; opacity: calc(.12 + var(--pw) * .5); transition: opacity .6s;
+  background: radial-gradient(70% 55% at 50% var(--cyp, 55%), color-mix(in srgb, var(--lit) 42%, transparent), transparent 72%); }
+.sm-bg .sm-fog { position: absolute; left: -20%; right: -20%; bottom: -10%; height: 46%; opacity: .5; filter: blur(30px);
+  background: radial-gradient(50% 60% at 30% 70%, rgba(120,110,190,.22), transparent 70%), radial-gradient(45% 55% at 72% 64%, rgba(100,140,210,.18), transparent 70%);
+  animation: smFog 18s ease-in-out infinite alternate; }
+@keyframes smFog { to { transform: translateX(6%) scale(1.06); } }
+.sm-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 50; background: radial-gradient(110% 90% at 50% 45%, transparent 55%, rgba(0,0,0,.6)); }
+
+/* ---------- le cercle d'invocation (peint au sol : écrasé en hauteur) ---------- */
+.sm-floor { position: absolute; transform: scaleY(var(--k, .5)); pointer-events: none; z-index: 1; }
+.sm-floor > * { position: absolute; inset: 0; border-radius: 50%; }
+.sm-floor .f-pool { inset: -26%; opacity: calc(.15 + var(--pw) * .85); transition: opacity .5s;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--lit) 50%, transparent), color-mix(in srgb, var(--lit) 14%, transparent) 55%, transparent 74%); }
+.sm-floor .f-stone { inset: -3%; background: radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.35) 86%, transparent 100%); }
+.sm-floor .f-spin { will-change: transform; }
+.sm-floor svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; }
+.sm-floor svg.dim { stroke: #8a6c3e; opacity: .55; }
+.sm-floor svg.lit { stroke: var(--lit); opacity: calc(.08 + var(--pw) * .92); transition: opacity .35s; filter: drop-shadow(0 0 2px var(--lit)) drop-shadow(0 0 9px var(--lit)); }
+.sm-floor svg .fill { fill: currentColor; stroke: none; }
+.sm-floor svg.dim .fill { color: #8a6c3e; } .sm-floor svg.lit .fill { color: var(--lit); }
+.sm-floor .f-runes b { position: absolute; left: 50%; top: 50%; translate: -50% -50%; font: 700 calc(var(--d) * .046)/1 Georgia, "Times New Roman", serif;
+  transform: rotate(var(--a)) translateY(calc(var(--d) * -.418)); color: #6d5531; transition: color .25s, text-shadow .25s; }
+.sm-stage.awake .sm-floor .f-runes b { color: #a88a58; }
+.sm-floor .f-runes b.on { color: color-mix(in srgb, var(--lit) 55%, #fff); text-shadow: 0 0 6px var(--lit), 0 0 14px var(--lit), 0 0 26px var(--lit); }
+.sm-floor .f-node { inset: auto; left: 50%; top: 50%; width: 15%; height: 15%; translate: -50% -50%; opacity: calc(var(--pw) * 1.2 - .2);
+  transform: rotate(var(--a)) translateY(calc(var(--d) * -.37)); background: radial-gradient(closest-side, #fff, color-mix(in srgb, var(--lit) 70%, transparent) 35%, transparent); }
+.sm-floor .f-core { inset: 41%; background: radial-gradient(closest-side, #fff 0 12%, color-mix(in srgb, var(--lit) 80%, #fff) 30%, color-mix(in srgb, var(--lit) 30%, transparent) 62%, transparent);
+  opacity: calc(var(--pw) * .9); animation: smCore 2.4s ease-in-out infinite; }
+@keyframes smCore { 50% { transform: scale(1.12); } }
+.sm-floor .f-wave { inset: 44%; border: 3px solid color-mix(in srgb, var(--wc, var(--lit)) 70%, #fff); box-shadow: 0 0 22px var(--wc, var(--lit)), inset 0 0 22px var(--wc, var(--lit)); }
+.sm-stage.awake .sm-floor .f-pool { opacity: .38; }
+.sm-stage.rainbow .sm-floor { animation: smHue 3s linear infinite; }
+@keyframes smHue { to { filter: hue-rotate(360deg); } }
+
+/* colonnes de lumière qui montent des branches de l'étoile */
+.sm-pillars { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.sm-pillar { position: absolute; width: var(--pwid); height: var(--phei); translate: -50% -100%; transform-origin: 50% 100%; filter: blur(14px); mix-blend-mode: screen; }
+.sm-pillar::before { content: ""; position: absolute; inset: 0; clip-path: polygon(30% 100%, 70% 100%, 100% 0, 0 0);
+  background: linear-gradient(to top, color-mix(in srgb, var(--lit) 70%, #fff), color-mix(in srgb, var(--lit) 40%, transparent) 40%, transparent 92%); }
+
+/* ---------- le pack ---------- */
+.sm-pack { position: absolute; z-index: 45; width: var(--pkw); aspect-ratio: 5 / 7.2; translate: -50% -50%; cursor: grab; touch-action: none; border-radius: 12px; }
+.sm-pack.drag { cursor: grabbing; }
+.sm-pack .pk-in { position: absolute; inset: 0; border-radius: inherit; transition: transform .18s ease-out; }
+.sm-pack.idle .pk-in { animation: smPackFloat 3.2s ease-in-out infinite; }
+.sm-pack.hover .pk-in { animation: smPackHover 2.2s ease-in-out infinite; }
+.sm-pack.charging .pk-in { animation: smPackCharge .09s linear infinite; }
+@keyframes smPackFloat { 50% { transform: translateY(-9px) rotate(1.2deg); } }
+@keyframes smPackHover { 0%, 100% { transform: translateY(-4%) rotateY(-10deg); } 50% { transform: translateY(-9%) rotateY(10deg); } }
+@keyframes smPackCharge { 0%, 100% { transform: translate(-1px, 0) rotate(-.6deg); } 50% { transform: translate(1px, -1px) rotate(.6deg); } }
+.sm-pack .pk-body { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: linear-gradient(160deg, #6a3aff, #ff3c7a);
+  box-shadow: 0 22px 40px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.25) inset, 0 0 calc(20px + var(--pw) * 60px) color-mix(in srgb, var(--lit) calc(30% + var(--pw) * 60%), transparent);
+  filter: brightness(calc(1 + var(--pw) * .8)); transition: filter .3s; }
+.sm-pack .pk-img { position: absolute; left: 8%; right: 8%; top: 11%; bottom: 24%; border-radius: 6px; background: #241a55 center top / cover no-repeat; box-shadow: 0 6px 16px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.3); }
+.sm-pack .pk-crimp { position: absolute; left: 0; right: 0; height: 7%; background: repeating-linear-gradient(90deg, rgba(255,255,255,.42) 0 3px, rgba(0,0,0,.14) 3px 6px); }
+.sm-pack .pk-crimp.t { top: 0; } .sm-pack .pk-crimp.b { bottom: 0; }
+.sm-pack .pk-name { position: absolute; left: 6%; right: 6%; bottom: 9%; text-align: center; font: 900 clamp(11px, calc(var(--pkw) * .1), 17px)/1.15 system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.sm-pack .pk-emo { position: absolute; top: 4%; right: 6%; font-size: calc(var(--pkw) * .16); filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+.sm-pack .pk-body::after { content: ""; position: absolute; inset: 0; mix-blend-mode: soft-light; background: linear-gradient(115deg, transparent 25%, rgba(255,255,255,.85) 45%, transparent 62%), linear-gradient(200deg, rgba(255,120,220,.45), rgba(120,220,255,.45), rgba(255,240,140,.45));
+  background-size: 260% 100%, 100% 100%; animation: sheen 3.4s ease-in-out infinite; }
+
+/* ---------- les cartes autour du cercle ---------- */
+.sm-slots { position: absolute; inset: 0; z-index: 10; }
+.sm-slot { --c: #fff; position: absolute; width: var(--w); aspect-ratio: 5 / 7; translate: -50% -50%; cursor: pointer; outline: none; }
+.sm-slot:focus-visible .sm-tilt { outline: 2px solid #ffd27a; outline-offset: 4px; border-radius: 12px; }
+.sm-pool { position: absolute; left: 50%; top: calc(50% + var(--w) * .868); width: 170%; aspect-ratio: 3.4; translate: -50% -50%; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .7s;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 80%, #fff) 0 18%, color-mix(in srgb, var(--c) 55%, transparent) 45%, transparent); }
+.sm-slot.l0 .sm-pool { background: radial-gradient(closest-side, rgba(0,0,0,.65), transparent); }
+.sm-slot.landed .sm-pool { opacity: .5; }
+.sm-slot.landed.l1 .sm-pool { opacity: .55; } .sm-slot.landed.l2 .sm-pool { opacity: .7; } .sm-slot.landed:is(.l3, .l4) .sm-pool { opacity: .9; }
+.sm-slot.landed:is(.l5, .l6, .l7, .l8) .sm-pool { opacity: 1; animation: smPool 1.6s ease-in-out infinite; }
+@keyframes smPool { 50% { transform: scale(1.15); filter: brightness(1.3); } }
+.sm-float { position: absolute; inset: 0; animation: smBob 3.4s ease-in-out infinite; animation-delay: var(--bd, 0s); }
+@keyframes smBob { 50% { transform: translateY(-5%); } }
+.sm-tilt { position: absolute; inset: 0; transition: transform .25s ease-out; }
+.sm-slot.hot .sm-tilt { transform: translateY(-7%) scale(1.07); }
+.sm-slot.up.tilting .sm-tilt { transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(1.07); transition: none; }
+.sm-in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform var(--flip, .5s) cubic-bezier(.3, 1.35, .5, 1); }
+.sm-slot .sm-tilt, .sm-big { perspective: 900px; }
+.up > .sm-float .sm-in, .sm-big.up .sm-in, .sm-slot.up .sm-in { transform: rotateY(180deg); }
+.sm-slot.instant .sm-in { transition: none; }
+.sm-in > .back, .sm-in > .card { position: absolute; inset: 0; width: auto; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.sm-in > .card { transform: rotateY(180deg); }
+.sm-slot.tease .sm-in { animation: smTease .09s linear infinite; }
+@keyframes smTease { 0%, 100% { translate: 0 0; rotate: 0deg; } 25% { translate: -2px 1px; rotate: -1.4deg; } 75% { translate: 2px -1px; rotate: 1.4deg; } }
+
+/* dos de carte du jeu */
+.emb { position: relative; width: 46%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 18px rgba(255,210,122,.35);
+  background: radial-gradient(circle, #241a55 56%, transparent 57%), conic-gradient(from 0deg, #ffd27a, #b8860b, #fff1c1, #b8860b, #ffd27a); }
+.emb::before { content: "AB"; font: 900 26px/1 system-ui, sans-serif; letter-spacing: 1px; background: linear-gradient(180deg, #fff3c4, #d4a017); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sm-in > .back { border-radius: 10px; border: 3px solid #4a3f8a; display: grid; place-items: center; overflow: hidden; container-type: inline-size;
+  background: radial-gradient(circle, rgba(255,255,255,.08), transparent 60%), repeating-linear-gradient(45deg, rgba(255,215,140,.07) 0 2px, transparent 2px 12px), repeating-linear-gradient(-45deg, rgba(255,215,140,.07) 0 2px, transparent 2px 12px), linear-gradient(160deg, #2a1f66, #120d2e); }
+.sm-in > .back .emb::before { font-size: max(12px, 13cqw); }
+.sm-in > .back::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.22) 50%, transparent 70%); background-size: 250% 250%; animation: holo 3.2s linear infinite; }
+.sm-in > .back.t1 { border-color: color-mix(in srgb, var(--c) 75%, #4a3f8a); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 60%, transparent); }
+.sm-in > .back.t2 { border-color: var(--c); box-shadow: 0 0 16px var(--c), 0 0 34px color-mix(in srgb, var(--c) 45%, transparent); }
+.sm-in > .back.t3 { border-color: color-mix(in srgb, var(--c) 70%, #fff); box-shadow: 0 0 20px var(--c), 0 0 46px var(--c); }
+.sm-in > .back.t4 { border-color: #fff; box-shadow: 0 0 22px var(--c), 0 0 52px var(--c); }
+.sm-in > .back.t4::before, .sm-in > .back.t5::before { content: ""; position: absolute; inset: -2px; border-radius: inherit; padding: 3px; pointer-events: none;
+  background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: ang 2.2s linear infinite; }
+.sm-in > .back.t5 { border-color: #fff; box-shadow: 0 0 26px #fff, 0 0 60px var(--c);
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--c) 45%, transparent), transparent 62%), repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 2px, transparent 2px 12px), linear-gradient(160deg, #2a1f66, #0b0820); }
+.sm-in > .back.t5::before { padding: 4px; animation-duration: 1.4s; }
+
+/* auras de rareté (cartes face cachée) : plus la carte est rare, plus ça brûle */
+.sm-aura { position: absolute; inset: -16%; border-radius: 24%; pointer-events: none; opacity: 0; filter: blur(12px);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 80%, #fff) 0 34%, color-mix(in srgb, var(--c) 55%, transparent) 64%, transparent); transition: opacity .5s; }
+.sm-slot.l1 .sm-aura { opacity: .45; } .sm-slot.l2 .sm-aura { opacity: .7; animation: smAura 2s ease-in-out infinite; }
+.sm-slot:is(.l3, .l4, .l5, .l6, .l7, .l8) .sm-aura, .sm-big .sm-aura { opacity: .9; animation: smAura 1.4s ease-in-out infinite; }
+.sm-slot.l4 .sm-aura, .sm-slot.l8 .sm-aura, .sm-big.l4 .sm-aura, .sm-big.l8 .sm-aura { background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); border-radius: 30%; animation: smAura 1.2s ease-in-out infinite, ang 3s linear infinite; }
+.sm-slot.hot .sm-aura { opacity: 1; transform: scale(1.12); }
+.sm-slot.up .sm-aura { opacity: 0; animation: none; }
+@keyframes smAura { 50% { transform: scale(1.08); opacity: 1; } }
+.sm-flames { position: absolute; left: -12%; right: -12%; bottom: 8%; height: 118%; pointer-events: none; }
+.sm-flames i { position: absolute; bottom: 0; width: 46%; height: 70%; filter: blur(7px); mix-blend-mode: screen; transform-origin: 50% 100%; opacity: .85; animation: smFlame 1.15s ease-in-out infinite; }
+.sm-flames i::before { content: ""; position: absolute; inset: 0; clip-path: polygon(50% 0, 64% 30%, 82% 22%, 76% 52%, 100% 60%, 84% 100%, 16% 100%, 0 60%, 24% 52%, 18% 22%, 36% 30%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--c) 40%, #fff), var(--c) 45%, transparent 98%); }
+.sm-flames i:nth-child(1) { left: 0; animation-delay: -.4s; } .sm-flames i:nth-child(2) { left: 27%; height: 92%; animation-delay: -.8s; animation-duration: .95s; } .sm-flames i:nth-child(3) { right: 0; animation-delay: -.15s; }
+@keyframes smFlame { 0%, 100% { transform: scale(1, .82) skewX(-3deg); opacity: .7; } 50% { transform: scale(1.06, 1.08) skewX(3deg); opacity: 1; } }
+.sm-slot.up .sm-flames { opacity: 0; transition: opacity .4s; }
+.sm-slot.l4 .sm-flames i::before, .sm-slot.l8 .sm-flames i::before, .sm-big.l4 .sm-flames i::before, .sm-big.l8 .sm-flames i::before { background: linear-gradient(to top, #fff, #ff3c7a 30%, #ffb300 55%, #00f0ff 80%, transparent); }
+.sm-halo { position: absolute; left: 50%; top: 50%; width: 260%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none; opacity: .85;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c) 45%, transparent) 0 8deg, transparent 8deg 22.5deg);
+  -webkit-mask: radial-gradient(closest-side, #000 14%, transparent 70%); mask: radial-gradient(closest-side, #000 14%, transparent 70%); filter: blur(4px); animation: spin 14s linear infinite; }
+.sm-slot.up .sm-halo { opacity: 0; transition: opacity .5s; }
+/* cartes révélées : la lumière reste autour des belles cartes */
+.sm-slot.up:is(.l3, .l4, .l5, .l6, .l7, .l8) .sm-tilt::before { content: ""; position: absolute; inset: -12%; border-radius: 20%; filter: blur(14px); opacity: .7; z-index: -1;
+  background: conic-gradient(from var(--ang), transparent, color-mix(in srgb, var(--c) 80%, transparent), transparent 30%, color-mix(in srgb, var(--c) 80%, transparent) 60%, transparent 80%); animation: ang 4s linear infinite; }
+.sm-slot.up:is(.l4, .l8) .sm-tilt::before { background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); }
+.sm-new { position: absolute; left: 50%; top: -12%; translate: -50% 0; z-index: 5; white-space: nowrap; pointer-events: none; font: 900 max(11px, calc(var(--w) * .1)) system-ui, sans-serif;
+  color: #eafff3; text-shadow: 0 0 8px #39ff9a, 0 0 18px #39ff9a; animation: smNew 1.8s ease-out forwards; }
+@keyframes smNew { 0% { transform: scale(2); opacity: 0; } 15% { transform: scale(1); opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(-40%); opacity: 0; } }
+
+/* ---------- mise en scène des grosses raretés ---------- */
+.sm-spot { position: absolute; inset: 0; z-index: 60; display: none; cursor: pointer; }
+.sm-spot.on { display: block; }
+.sm-spot .sp-dim { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% var(--syp, 45%), color-mix(in srgb, var(--c) 24%, rgba(6,4,14,.72)), rgba(1,1,4,.95) 72%); }
+.sm-spot .sp-rays { position: absolute; left: 50%; top: var(--sy); width: 180vmax; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; opacity: 0;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c) 36%, transparent) 0 7deg, transparent 7deg 20deg);
+  -webkit-mask: radial-gradient(closest-side, #000 5%, transparent 58%); mask: radial-gradient(closest-side, #000 5%, transparent 58%); filter: blur(6px); animation: spin 36s linear infinite; }
+.sm-spot.l4 .sp-rays, .sm-spot.l8 .sp-rays { background: repeating-conic-gradient(from 0deg, rgba(255,60,122,.4) 0 6deg, transparent 6deg 15deg, rgba(255,179,0,.4) 15deg 21deg, transparent 21deg 30deg, rgba(0,240,255,.4) 30deg 36deg, transparent 36deg 45deg); }
+.sm-spot .sp-pillar { position: absolute; left: 50%; top: 0; bottom: 0; width: min(76vw, 460px); translate: -50% 0; opacity: 0; filter: blur(26px); mix-blend-mode: screen; transform-origin: 50% 100%; }
+.sm-spot .sp-pillar::before { content: ""; position: absolute; inset: 0; clip-path: polygon(34% 100%, 66% 100%, 100% 0, 0 0);
+  background: linear-gradient(to top, color-mix(in srgb, var(--c) 55%, #fff), color-mix(in srgb, var(--c) 45%, transparent) 45%, transparent 95%); }
+.sm-spot .sp-glow { position: absolute; left: 50%; top: var(--sy); width: calc(var(--bw) * 3.2); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; opacity: 0;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 60%, transparent), color-mix(in srgb, var(--c) 18%, transparent) 55%, transparent); }
+.sm-big { position: absolute; left: 50%; top: var(--sy); width: var(--bw); aspect-ratio: 5 / 7; translate: -50% -50%; z-index: 3; }
+.sm-big .sm-aura { inset: -14%; filter: blur(18px); }
+.sm-big .sm-in > .card { box-shadow: 0 0 36px var(--c), 0 0 90px color-mix(in srgb, var(--c) 60%, transparent); }
+.sm-big .sm-in > .back { container-type: inline-size; }
+.sm-big.up .sm-flames, .sm-big.up .sm-halo, .sm-big.up .sm-aura { opacity: 0; transition: opacity .35s; }
+.sm-big.charge .sm-in { animation: smTease .07s linear infinite; }
+.sm-big.charge .sm-in > .back { filter: brightness(1.5); }
+.sm-banner { position: absolute; left: 0; right: 0; top: var(--bt); z-index: 4; display: grid; justify-items: center; padding: 0 12px; pointer-events: none; opacity: 0; text-align: center; }
+.sm-banner small { display: block; font: 800 clamp(11px, 1.6vw, 14px)/1 system-ui, sans-serif; letter-spacing: .45em; padding-left: .45em; color: color-mix(in srgb, var(--c) 45%, #fff); margin-bottom: 8px; text-shadow: 0 0 10px var(--c); }
+.sm-banner b { display: block; font: 900 clamp(30px, 7.4vw, 76px)/1 "Cinzel", Georgia, "Times New Roman", serif; letter-spacing: .06em; color: #fff; white-space: nowrap;
+  text-shadow: 0 0 18px var(--c), 0 0 42px var(--c), 0 3px 0 color-mix(in srgb, var(--c) 45%, #000); }
+.sm-banner.ribbon b { padding: 10px clamp(26px, 6vw, 56px) 12px; color: #3b2300; font-size: clamp(24px, 5.6vw, 52px); text-shadow: 0 1px 0 rgba(255,255,255,.5);
+  background: linear-gradient(#fff3c8, color-mix(in srgb, var(--c) 80%, #fff) 45%, color-mix(in srgb, var(--c) 85%, #5a3500)); clip-path: polygon(0 0, 100% 0, 95% 50%, 100% 100%, 0 100%, 5% 50%);
+  filter: drop-shadow(0 0 18px var(--c)); }
+.sm-spot.l4 .sm-banner.ribbon b, .sm-spot.l8 .sm-banner b { background: linear-gradient(90deg, #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a); background-size: 300% 100%; animation: smRainbow 3s linear infinite; }
+.sm-spot.l8 .sm-banner b { -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 0 16px rgba(255,255,255,.7)); }
+@keyframes smRainbow { to { background-position: 300% 0; } }
+.sm-spot:is(.l6, .l7) .sm-banner b { background: linear-gradient(100deg, #fff 20%, color-mix(in srgb, var(--c) 65%, #fff) 40%, #fff 50%, color-mix(in srgb, var(--c) 65%, #fff) 60%, #fff 80%); background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 14px var(--c)) drop-shadow(0 0 30px var(--c)); text-shadow: none; animation: smRainbow 2.4s linear infinite; }
+.sm-sub { position: absolute; left: 0; right: 0; top: var(--st); z-index: 4; padding: 0 16px; text-align: center; pointer-events: none; opacity: 0; display: grid; justify-items: center; gap: 6px; }
+.sm-sub .nm { font: 800 clamp(16px, 2.6vw, 22px)/1.2 system-ui, sans-serif; text-shadow: 0 2px 10px #000; }
+.sm-sub .an { color: #cfc8ef; font-weight: 700; font-size: 14px; }
+.sm-sub .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.sm-sub .chips span { padding: 4px 11px; border-radius: 99px; font-weight: 800; font-size: 13px; background: rgba(10,8,24,.8); border: 1px solid color-mix(in srgb, var(--c) 60%, #3a3170); }
+.sm-sub .chips .odds { color: #39ff9a; }
+.sm-skip { position: absolute; left: 0; right: 0; bottom: calc(var(--uih, 120px) + 10px); z-index: 4; text-align: center; color: rgba(255,255,255,.7); font-weight: 700; font-size: 13px; opacity: 0; pointer-events: none; }
+.sm-flash { position: absolute; inset: 0; z-index: 70; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), #fff, color-mix(in srgb, var(--c, #fff) 70%, #fff) 26%, color-mix(in srgb, var(--c, #fff) 30%, transparent) 60%, transparent 85%); }
+
+/* ---------- interface de l'ouverture ---------- */
+.op-top { position: absolute; left: 0; right: 0; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; pointer-events: none; }
+.op-head { color: var(--mut); font-weight: 700; text-shadow: 0 1px 4px #000; }
+.op-luck { font-weight: 900; padding: 4px 12px; border-radius: 99px; color: #0b1a06; background: linear-gradient(90deg, #39ff14, #ffe600); box-shadow: 0 0 18px rgba(57,255,20,.6); }
+.op-luck:empty { display: none; }
+.op-god { position: absolute; left: 0; right: 0; top: 46px; z-index: 30; display: none; text-align: center; pointer-events: none; font-size: clamp(28px, 6vw, 44px); font-weight: 900;
+  background: linear-gradient(90deg, #ffb300, #ff3c7a, #00f0ff, #ffb300); background-size: 300%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: holo 2s linear infinite, godIn .6s cubic-bezier(.2,.9,.3,1.4) both; }
+.op-god.on { display: block; }
+@keyframes godIn { from { transform: scale(3); opacity: 0; filter: blur(8px); } }
+.op-ui { position: absolute; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; justify-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, rgba(3,2,8,.85), rgba(3,2,8,.55) 70%, transparent); }
+.sm-hint { margin: 0; min-height: 22px; font-weight: 800; color: #fff; text-align: center; text-shadow: 0 0 10px rgba(160,130,255,.8), 0 1px 3px #000; animation: smHint 1.8s ease-in-out infinite; }
+.sm-hint:empty { animation: none; }
+@keyframes smHint { 50% { opacity: .55; } }
+.op-sum { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 32px; visibility: hidden; }
+.op-sum.on { visibility: visible; animation: fadeUp .5s both; }
+.op-sum span { background: rgba(24,20,46,.92); border: 1px solid #3a3170; border-radius: 99px; padding: 6px 14px; font-weight: 800; font-size: 14px; }
+.op-sum .sum-gems { font-style: normal; text-shadow: 0 0 6px currentColor; }
+.op-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.op-bar .btn { background: rgba(34,28,64,.92); }
+.op-bar .btn.gold { background: linear-gradient(135deg, #ffb300, #ff3c7a); }
+.op-bar .btn.on { background: var(--acc); }
+.op-hint { margin: 0; color: var(--mut); font-size: 12px; }
+@media (max-width: 640px) {
+  .op-bar .btn { padding: 8px 12px; font-size: 14px; }
+  .op-hint { display: none; }
+  .sm-sub .an { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sm-float, .sm-flames i, .sm-aura, .sm-halo, .sm-bg .sm-fog, .sm-pack .pk-in { animation: none !important; }
+}

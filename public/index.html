@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Anime Boosters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="summon.css">
 <link rel="stylesheet" href="anime-game-cards.css">
 </head>
 <body>
@@ -105,24 +109,23 @@
 </main>
 
 <div id="opening" class="opening">
-  <div class="op-rays"></div>
-  <div class="op-head" id="op-count"></div>
-  <div class="op-luck" id="op-luck"></div>
-  <div class="op-pack" id="op-pack"><div class="op-art" id="op-art"></div><div class="op-strip"></div><div class="op-name" id="op-name"></div></div>
+  <div class="sm-stage" id="sm-stage"></div>
+  <canvas class="sm-glow" id="sm-glow"></canvas>
+  <div class="op-top"><div class="op-head" id="op-count"></div><div class="op-luck" id="op-luck"></div></div>
   <div class="op-god" id="op-god">✨ GOD PACK ✨</div>
-  <div class="op-cards" id="op-cards"></div>
-  <div class="op-sum" id="op-sum"></div>
-  <div class="op-bar">
-    <button id="op-flip" class="btn">✨ Tout révéler</button>
-    <button id="op-again" class="btn gold">Pack suivant</button>
-    <button id="op-auto" class="btn">▶ Auto</button>
-    <button id="op-close" class="btn">Fermer</button>
+  <div class="op-ui" id="op-ui">
+    <p class="sm-hint" id="sm-hint"></p>
+    <div class="op-sum" id="op-sum"></div>
+    <div class="op-bar">
+      <button id="op-flip" class="btn">✨ Tout révéler</button>
+      <button id="op-again" class="btn gold">Pack suivant</button>
+      <button id="op-auto" class="btn">▶ Auto</button>
+      <button id="op-close" class="btn">Fermer</button>
+    </div>
+    <p class="op-hint">Espace = suite · Échap = fermer</p>
   </div>
-  <p class="op-hint">Espace = pack suivant · Échap = fermer</p>
-  <div class="flash" id="flash"></div>
-  <div class="cine" id="cine"></div>
-  <canvas class="fx" id="fx"></canvas>
 </div>
+<canvas class="fx" id="fx"></canvas>
 
 <div id="book" class="book">
   <div class="book-top">
@@ -167,6 +170,7 @@
 <script src="vendor/page-flip.browser.js"></script>
 <script src="engine.js"></script>
 <script src="fx.js"></script>
+<script src="summon.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

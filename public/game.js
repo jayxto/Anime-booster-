@@ -147,7 +147,7 @@ function untilt() {
     tiltEl = null;
 }
 document.addEventListener('pointermove', e => {
-    const el = e.target.closest ? e.target.closest('.slot.up, #zoom .card') : null;
+    const el = e.target.closest ? e.target.closest('.sm-slot.up, #zoom .card') : null;
     if (tiltEl && tiltEl !== el) untilt();
     if (!el) return;
     tiltEl = el;
@@ -160,179 +160,70 @@ document.addEventListener('pointermove', e => {
 });
 document.addEventListener('pointerleave', untilt);
 
-/* ---------- ouverture : arrivée, charge, explosion, distribution, révélations ---------- */
-let auto = false, autoT = 0, opened = null, busy = false, wantReveal = false, flipping = false;
-const AURA = r => r >= 8 ? ['#ffffff', '#ffd700', '#ff3c7a', '#00f0ff', '#7b5cff'] : r >= 5 ? ['#00f0ff', '#b44dff', '#ffffff'] : r >= 4 ? ['#ff3c7a', '#ffb300'] : r >= 3 ? ['#ffb300', '#fff3b0'] : r >= 2 ? ['#b44dff', '#d9b3ff'] : ['#9fd0ff', '#ffffff'];
-const centerOf = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+/* ---------- ouverture : le cercle d'invocation (mise en scène dans summon.js) ---------- */
+let auto = false, autoT = 0, opened = null, busy = false, openTok = 0;
+const SM = Summon.create({
+    root: $('#opening'), stage: $('#sm-stage'), canvas: $('#sm-glow'), ui: $('#op-ui'), hint: $('#sm-hint'),
+    cardHtml, colorOf, labelOf, rankOf: c => RANK[c.rarity] || 0,
+    oddsOf: c => { const t = oddsText(G.chanceOf(c, luckNow())); return t ? t.replace(/^1 sur /, '1 chance sur ') + ' par carte' : ''; },
+    finishOf: c => c.finish ? 'Finition ' + (FIN_LABEL[c.finish] || c.finish) : '',
+    inspect, muted: () => MUTED,
+    onGod: () => { $('#op-god').classList.add('on'); sfx('choir'); },
+    onDone: () => { showSummary(); setBar(); }
+});
+const isStop = e => e === Summon.STOP;
+function setBar() {
+    $('#op-flip').disabled = !(opened && SM.dealt() && SM.hidden());
+    $('#op-again').disabled = !lastPack || !!lastPack.free || S.coins < (lastPack.price || 0);
+}
+// en mode auto, un souci de réseau ne coupe pas tout : on réessaie
+async function buyPack(p) {
+    for (let tries = 0; ; tries++) {
+        let r;
+        try { r = await doBuy(p.id); } catch (_) { r = { ok: false, error: 'Connexion perdue.', retry: true }; }
+        if (r.ok || !auto || !r.retry || tries >= 4) return r;
+        await sleep(1500);
+    }
+}
 async function startOpen(p) {
     if (busy) return;
     if (p.price && S.coins < p.price) { stopAuto(auto ? 'Plus assez de pièces : mode auto arrêté.' : ''); if (!auto) toast('Pas assez de pièces !'); return; }
-    busy = true;
-    const ov = $('#opening'), pk = $('#op-pack');
-    ov.classList.add('on'); ov.classList.remove('charging');
-    ov.style.setProperty('--aura', '#9fd0ff');
+    busy = true; clearTimeout(autoT);
+    const tok = ++openTok;
+    $('#opening').classList.add('on'); $('#opening').dataset.pack = tok;
     $('#op-god').classList.remove('on');
-    $('.op-bar').classList.remove('on');
-    $('#op-cards').innerHTML = '';
     $('#op-sum').classList.remove('on'); $('#op-sum').innerHTML = '';
-    $('#op-count').textContent = '';
+    $('#op-count').textContent = p.infinite ? `♾️ Pack infini n°${fmt((S.infinite || 0) + 1)}` : p.name;
     $('#op-luck').textContent = luckNow() > 1 ? `🍀 Chance x${luckNow()}` : '';
-    pk.style.display = ''; pk.className = 'op-pack'; void pk.offsetWidth; pk.classList.add('arrive');
-    $('#op-art').style.backgroundImage = packArt(p) ? `url('${packArt(p)}')` : '';
-    $('#op-name').textContent = p.name;
-    opened = null; wantReveal = false;
-    pk.onclick = () => { if (opened) reveal(); else wantReveal = true; };
-    sfx('whoosh');
-    let r, tries = 0;
-    for (;;) { // en mode auto, un souci de réseau ne coupe pas tout : on réessaie
-        try { r = await doBuy(p.id); } catch (_) { r = { ok: false, error: 'Connexion perdue.', retry: true }; }
-        if (r.ok || !auto || !r.retry || ++tries > 4) break;
-        await sleep(1500);
-    }
-    busy = false;
-    if (!r.ok) {
-        const wasAuto = auto;
-        closeOpen(); renderFree();
-        return toast(wasAuto ? `Mode auto arrêté : ${r.error}` : r.error);
-    }
-    lastPack = p;
-    $('#op-count').textContent = p.infinite ? `♾️ Pack infini n°${fmt(S.infinite)}` : '';
-    const best = r.god ? 9 : r.cards.reduce((m, c) => Math.max(m, RANK[c.rarity] || 0), 0);
-    ov.style.setProperty('--aura', AURA(best)[0]); // la lueur du pack annonce ce qu'il y a dedans
-    opened = { cards: r.cards, god: r.god, best, revealed: false };
-    if (wantReveal) reveal();
-    else if (auto) autoT = setTimeout(reveal, 250);
-}
-async function reveal() {
-    if (!opened || opened.revealed) return;
-    opened.revealed = true;
-    const op = opened, ov = $('#opening'), pk = $('#op-pack'), box = $('#op-cards'), cards = op.cards, fast = auto;
-    const colors = AURA(op.best);
-    pk.onclick = null;
-    const c = centerOf(pk);
-    // 1) le pack se charge
-    pk.classList.remove('arrive'); pk.classList.add('charge'); ov.classList.add('charging');
-    sfx('charge');
-    FX.implode(c.x, c.y, { count: fast ? 25 : 90, colors, radius: 320, life: fast ? 300 : 650 });
-    await sleep(fast ? 220 : 650);
-    // 2) il explose
-    pk.classList.add('burst'); ov.classList.remove('charging');
-    FX.flash($('#flash'), colors[0], fast ? 220 : 450, op.best >= 5 ? 1 : 0.75);
-    FX.ring(c.x, c.y, colors[0], op.best >= 5 ? 460 : 300);
-    FX.burst(c.x, c.y, { count: fast ? 50 : op.best >= 5 ? 280 : 160, colors: [...colors, '#ffffff'], speed: op.best >= 5 ? 13 : 9 });
-    FX.shake(ov, fast ? 4 : op.best >= 5 ? 16 : 9, 380);
-    sfx('rip'); sfx('boom');
-    await sleep(fast ? 120 : 280);
-    if (opened !== op) return;
-    pk.style.display = 'none';
-    // God Pack
-    if (op.god) { $('#op-god').classList.add('on'); FX.rain({ duration: 3000, rate: 8 }); sfx('choir'); if (!fast) await sleep(900); }
-    // 3) les cartes jaillissent du pack (les plus rares sont révélées en dernier)
-    const order = cards.map((x, i) => i).sort((a, b) => (RANK[cards[a].rarity] || 0) - (RANK[cards[b].rarity] || 0));
-    box.innerHTML = order.map(i => {
-        const x = cards[i], r = RANK[x.rarity] || 0;
-        return `<div class="slot rk-${rkOf(x)}" data-i="${i}" style="--c:${colorOf(x)}"><i class="halo"></i><i class="pillar"></i><div class="in"><div class="back t${Math.min(5, rkOf(x))}"><i class="emb"></i></div>${cardHtml(x, { isNew: x.isNew, coins: x.coins })}</div></div>`;
-    }).join('');
-    const slots = [...box.querySelectorAll('.slot')];
-    slots.forEach((s, k) => {
-        if (!s.animate) return;
-        const r = s.getBoundingClientRect(), dx = c.x - (r.left + r.width / 2), dy = c.y - (r.top + r.height / 2);
-        s.animate([{ transform: `translate(${dx}px, ${dy}px) scale(.25) rotate(${(k - slots.length / 2) * 14}deg)`, opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: 'none', opacity: 1 }],
-            { duration: fast ? 380 : 700, delay: k * (fast ? 30 : 85), easing: 'cubic-bezier(.18,.9,.3,1.12)', fill: 'backwards' });
-    });
-    sfx('deal');
-    slots.forEach(s => s.onclick = () => { if (s.classList.contains('up')) inspect(cards[+s.dataset.i]); else turn(s); });
-    $('.op-bar').classList.add('on');
-    $('#op-again').disabled = !!lastPack.free || S.coins < (lastPack.price || 0);
-    if (fast) {
-        await sleep(slots.length * 30 + 420);
-        if (opened !== op) return;
-        await flipAll(true);
-        if (auto && opened === op) autoT = setTimeout(() => auto && startOpen(lastPack), 900);
-    }
-}
-// retourner une carte : plus elle est rare, plus le suspense et l'effet sont forts
-const TEASE = [0, 180, 420, 760, 1000];
-async function turn(s, fast) {
-    if (!opened || s.classList.contains('up') || s.classList.contains('turning')) return;
-    const card = opened.cards[+s.dataset.i];
-    if (!card) return;
-    const r = RANK[card.rarity] || 0, g = Math.min(4, Math.floor(r)), col = colorOf(card), box = $('#op-cards'), ov = $('#opening');
-    s.classList.add('turning');
-    if (r >= 5 && (!fast || r >= 6)) await cinematic(card, fast);
-    else if (!fast && g >= 1) {
-        // le dos de la carte tremble et s'illumine ; à partir de légendaire, le reste s'assombrit
-        const c0 = centerOf(s);
-        s.classList.add('tease');
-        if (g >= 3) { box.classList.add('focus'); s.classList.add('focus'); ov.classList.add('dim'); }
-        sfx(g >= 3 ? 'charge' : 'tick');
-        FX.implode(c0.x, c0.y, { count: 10 + g * 20, colors: [col, '#ffffff'], radius: 110 + g * 50, life: TEASE[g] });
-        await sleep(TEASE[g]);
-        s.classList.remove('tease');
-    }
-    if (!opened) return;
-    s.style.setProperty('--flip', (fast ? 0.4 : [0.45, 0.55, 0.65, 0.8, 0.95][g]) + 's');
-    s.classList.remove('turning'); s.classList.add('up');
-    const c = centerOf(s), rect = s.getBoundingClientRect(), k = fast ? 0.5 : 1;
-    if (r >= 5) {
-        s.classList.add('lit'); FX.burst(c.x, c.y, { count: 130 * k, colors: [col, '#ffffff', '#ffd700'], speed: 9 });
-        FX.ring(c.x, c.y, col, 220, 650); FX.shake(ov, 8 * k, 280); stamp(s, labelOf(card)); sfx('epic');
-    } else if (g === 4) { // mythique
-        s.classList.add('lit'); if (!fast) FX.flash($('#flash'), col, 450, 0.6);
-        FX.burst(c.x, c.y, { count: 170 * k, colors: [col, '#ffb300', '#39ff9a', '#00f0ff', '#ffffff'], speed: 10 });
-        FX.ring(c.x, c.y, col, 240, 700); FX.ring(c.x, c.y, '#ffffff', 140, 500);
-        if (!fast) FX.fireworks(2, [col, '#ffb300', '#ffffff']);
-        FX.shake(ov, 12 * k, 380); stamp(s, labelOf(card)); sfx('boom'); sfx('epic'); if (!fast) sfx('choir');
-    } else if (g === 3) { // légendaire
-        s.classList.add('lit'); if (!fast) FX.flash($('#flash'), col, 380, 0.45);
-        FX.burst(c.x, c.y, { count: 110 * k, colors: [col, '#fff3b0', '#ffffff'], speed: 8 });
-        FX.ring(c.x, c.y, col, 210, 650); FX.sparkle(rect, { count: 26 * k, colors: ['#ffd700', '#fff3b0', '#ffffff'] });
-        FX.shake(ov, 8 * k, 300); stamp(s, labelOf(card)); sfx('epic'); sfx('shimmer');
-    } else if (g === 2) { // épique
-        s.classList.add('lit');
-        FX.burst(c.x, c.y, { count: 60 * k, colors: [col, '#ffffff'], speed: 6 }); FX.ring(c.x, c.y, col, 150, 500);
-        FX.shake(ov, 3 * k, 200); stamp(s, labelOf(card)); sfx('rare');
-    } else if (g === 1) { // rare
-        FX.burst(c.x, c.y, { count: 30 * k, colors: [col, '#ffffff'], speed: 4.5, life: 800 }); FX.ring(c.x, c.y, col, 110, 450); sfx('chime');
-    } else { // commune
-        FX.burst(c.x, c.y, { count: 8, colors: ['#ffffff', '#cfd8ff'], speed: 2.5, life: 500 }); sfx('flip');
-    }
-    if (card.shiny) FX.sparkle(rect, { count: 18 * k });
-    if (card.finish) FX.sparkle(rect, { count: 12 * k, colors: ['#ffd700', '#ffffff'] });
-    if (card.isNew && g < 2 && r < 5) stamp(s, 'Nouveau !', true);
-    if (g >= 3 || r >= 5) setTimeout(() => { box.classList.remove('focus'); s.classList.remove('focus'); ov.classList.remove('dim'); }, fast ? 0 : 900);
-    if (opened && !box.querySelector('.slot:not(.up)')) showSummary();
-}
-function stamp(slot, text, small) {
-    const el = document.createElement('div');
-    el.className = 'stamp' + (small ? ' small' : ''); el.textContent = text;
-    slot.appendChild(el);
-    setTimeout(() => el.remove(), 1700);
-}
-// « Tout révéler » : une carte après l'autre, la caméra suit, pause plus longue après une belle carte
-async function flipAll(fast) {
-    if (flipping) return;
-    flipping = true;
-    const btn = $('#op-flip'); btn.disabled = true;
+    opened = { tok, p, cards: null, god: false, summed: false };
+    SM.open({ name: p.name, art: packArt(p), emo: p.emo, n: p.n, auto });
+    setBar();
+    // le pack est acheté tout de suite ; pendant ce temps le joueur le pose dans le cercle
+    const buying = buyPack(p).then(r => { busy = false; return r; });
     try {
-        for (const s of [...$('#op-cards').querySelectorAll('.slot:not(.up)')]) {
-            if (!opened) break;
-            if (!fast) await bringIntoView(s);
-            await turn(s, fast);
-            const g = Math.min(5, Math.floor(RANK[((opened && opened.cards[+s.dataset.i]) || {}).rarity] || 0));
-            await sleep(fast ? 70 : [130, 170, 280, 560, 720, 520][g]);
-        }
-    } finally { flipping = false; btn.disabled = false; }
+        await SM.drop();
+        const r = await buying;
+        if (tok !== openTok) return;
+        if (!r.ok) { const wasAuto = auto; closeOpen(); renderFree(); return toast(wasAuto ? `Mode auto arrêté : ${r.error}` : r.error); }
+        lastPack = p;
+        if (p.infinite) $('#op-count').textContent = `♾️ Pack infini n°${fmt(S.infinite)}`;
+        opened.cards = r.cards; opened.god = r.god;
+        setBar();
+        await SM.ignite(r.cards, r.god);
+        if (tok !== openTok) return;
+        setBar();
+        if (auto) await autoReveal(tok);
+    } catch (e) { if (!isStop(e)) console.error(e); }
 }
-async function bringIntoView(s) {
-    const r = s.getBoundingClientRect();
-    if (r.top >= 0 && r.bottom <= innerHeight) return;
-    s.scrollIntoView({ block: 'center', behavior: FX.REDUCED ? 'auto' : 'smooth' });
-    await sleep(350);
+// mode auto : tout se révèle vite, puis le pack suivant arrive ; il ne s'arrête jamais tout seul
+async function autoReveal(tok) {
+    await SM.revealAll(true);
+    if (tok !== openTok || !auto) return;
+    autoT = setTimeout(() => { if (auto && tok === openTok && lastPack) startOpen(lastPack); }, 650);
 }
 // résumé du pack une fois tout révélé
 function showSummary() {
-    if (!opened || opened.summed) return;
+    if (!opened || !opened.cards || opened.summed) return;
     opened.summed = true;
     const cards = opened.cards, best = cards.reduce((b, c) => (RANK[c.rarity] || 0) > (RANK[b.rarity] || 0) ? c : b, cards[0]);
     const news = cards.filter(c => c.isNew).length, coins = cards.reduce((t, c) => t + (c.coins || 0), 0);
@@ -341,55 +232,34 @@ function showSummary() {
         + (news ? `<span>✨ ${news} nouvelle${news > 1 ? 's' : ''}</span>` : '<span>Aucune nouvelle carte</span>') + (coins ? `<span>+${fmt(coins)} 🪙 de doublons</span>` : '');
     el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
 }
-function cinematic(card, fast) {
-    return new Promise(resolve => {
-        const cine = $('#cine'), r = RANK[card.rarity] || 0, col = colorOf(card), big = r >= 8, huge = r >= 9.5;
-        cine.style.setProperty('--c', col);
-        cine.className = 'cine on t-' + (card.season || card.rarity) + (big ? ' big' : '');
-        cine.innerHTML = `<div class="cine-bg"></div><div class="cine-rays"></div>
-          <div class="cine-card"><div class="cine-in"><div class="back"><i class="emb"></i></div>${cardHtml(card, { flat: true })}</div></div>
-          <div class="cine-title"><small>${card.season ? 'Carte de saison' : card.rarity === 'duo' ? 'Carte' : 'Rareté'}</small>${esc(labelOf(card))}</div>
-          <div class="cine-sub">${esc(card.name)} · ${esc(card.anime || '')}</div><div class="cine-skip">Touche pour continuer</div>`;
-        const cx = innerWidth / 2, cy = innerHeight / 2, T = [];
-        sfx('charge');
-        FX.implode(cx, cy, { count: big ? 200 : 130, colors: [col, '#ffffff'], radius: 460, life: fast ? 500 : 1000 });
-        T.push(setTimeout(() => {
-            cine.classList.add('flip');
-            FX.flash($('#flash'), col, 500, 1);
-            FX.ring(cx, cy, col, 560, 900); FX.ring(cx, cy, '#ffffff', 320, 600);
-            FX.burst(cx, cy, { count: huge ? 520 : big ? 380 : 240, colors: [col, '#ffffff', '#ffd700'], speed: huge ? 18 : big ? 15 : 12, life: 1700 });
-            if (huge) setTimeout(() => { FX.ring(cx, cy, '#ffffff', 700, 1100); FX.flash($('#flash'), '#ffffff', 600, 1); FX.shake(cine, 24, 600); sfx('boom'); }, 350);
-            FX.shake(cine, big ? 20 : 12, 500);
-            sfx('boom'); sfx('choir');
-        }, fast ? 450 : 1050));
-        T.push(setTimeout(() => {
-            cine.classList.add('title');
-            FX.fireworks(huge ? 16 : big ? 9 : 4, [col, '#ffffff', '#ffd700', '#ff3c7a']);
-            if (big) FX.rain({ colors: [col, '#ffffff', '#ffd700'], duration: 2500 });
-        }, fast ? 650 : 1400));
-        let done = false;
-        const end = () => { if (done) return; done = true; T.forEach(clearTimeout); cine.className = 'cine'; cine.innerHTML = ''; cine.onclick = null; resolve(); };
-        T.push(setTimeout(end, fast ? 1700 : huge ? 5800 : big ? 4600 : 3300));
-        cine.onclick = e => { e.stopPropagation(); if (cine.classList.contains('flip')) end(); };
-    });
+// Espace : poser le pack, puis tout révéler, puis pack suivant
+function next() {
+    if (!opened) return;
+    if (!SM.dealt()) { SM.tapPack(); return; }
+    if (SM.hidden()) { SM.revealAll(false); return; }
+    nextPack();
 }
-function next() { if (!lastPack || lastPack.free) return; if (opened && !opened.revealed) return reveal(); startOpen(lastPack); }
+function nextPack() { if (!lastPack || lastPack.free || busy) return; startOpen(lastPack); }
 function stopAuto(msg) {
     const was = auto;
-    auto = false; clearTimeout(autoT);
+    auto = false; clearTimeout(autoT); SM.setAuto(false);
     $('#op-auto').classList.remove('on'); $('#op-auto').textContent = '▶ Auto';
     if (was && msg) toast(msg, 4000);
 }
-function closeOpen() { stopAuto(); opened = null; $('#opening').classList.remove('on'); $('#cine').className = 'cine'; $('#cine').innerHTML = ''; FX.clear(); renderShop(); }
-$('#op-flip').onclick = () => flipAll(false);
+function closeOpen() { stopAuto(); openTok++; opened = null; SM.close(); $('#opening').classList.remove('on'); $('#op-god').classList.remove('on'); renderShop(); }
+$('#op-flip').onclick = () => SM.revealAll(false);
 $('#op-close').onclick = closeOpen;
-$('#op-again').onclick = next;
+$('#op-again').onclick = nextPack;
 $('#op-auto').onclick = () => {
     if (auto) return stopAuto();
-    if (!lastPack || lastPack.free) return toast('Le mode auto marche avec les packs payants et le Pack Infini.');
+    const p = lastPack || (opened && opened.p);
+    if (!p || p.free) return toast('Le mode auto marche avec les packs payants et le Pack Infini.');
     auto = true; $('#op-auto').classList.add('on'); $('#op-auto').textContent = '⏸ Stop';
-    if (opened && opened.revealed && !flipping) { flipAll(true).then(() => { if (auto) autoT = setTimeout(() => auto && startOpen(lastPack), 600); }); }
-    else next();
+    SM.setAuto(true);
+    if (!opened) return startOpen(p);
+    if (!SM.dealt()) return; // le pack en cours file tout seul dans le cercle et la suite s'enchaîne
+    if (SM.hidden()) autoReveal(opened.tok);
+    else nextPack();
 };
 document.addEventListener('keydown', e => {
     if (e.target.matches && e.target.matches('input, select, textarea')) return;
@@ -402,8 +272,8 @@ document.addEventListener('keydown', e => {
         return;
     }
     if ($('#opening').classList.contains('on')) {
-        if ($('#cine').classList.contains('on')) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); $('#cine').click(); } return; }
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); next(); }
+        if (e.defaultPrevented) return;
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (SM.busy()) SM.skip(); else next(); }
         if (e.key === 'Escape') closeOpen();
     }
 });

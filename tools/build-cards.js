@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const T = f => path.join(__dirname, f);
 
-const anilist = require(T('anilist.json'));
+const anilist = require(process.env.ANILIST || T('anilist.json')); // ANILIST=… : autre fichier de données (essais)
 const pool = require(T('pool.json'));
 const extra = require(T('extra.json'));
 const halloween = require(T('halloween.json'));
@@ -140,4 +140,4 @@ fs.writeFileSync(path.join(__dirname, '..', 'public', 'cards.json'), JSON.string
 const total = Object.values(animes).reduce((s, a) => s + a.cards.length, 0);
 const waifus = Object.values(animes).reduce((s, a) => s + a.cards.filter(c => c[3]).length, 0);
 if (V1) console.log(`anciennes cartes gardées : ${kept}, nouveaux persos : ${added}`);
-console.log(`${Object.keys(animes).length} animés, ${total} persos dont ${waifus} waifus (${renamed} avec le nom d'Anime Game, ${used.size} animés d'Anime Game retrouvés), ${duos.length} duos, saisons : ${Object.entries(seasons).map(([k, s]) => k + ' ' + s.chars.length).join(', ')}`);
+console.log(`${Object.keys(animes).length} animés, ${total} persos dont ${waifus} waifus (${renamed} noms repris, ${used.size} animés d'Anime Game retrouvés), ${duos.length} duos, saisons : ${Object.entries(seasons).map(([k, s]) => k + ' ' + s.chars.length).join(', ')}`);

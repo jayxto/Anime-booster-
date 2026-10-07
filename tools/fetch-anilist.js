@@ -14,7 +14,9 @@ async function gql(query) {
             const r = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ query }) });
             if (r.status === 429) { const w = +(r.headers.get('retry-after') || 60); console.log('  limite, attente', w, 's'); await sleep((w + 1) * 1000); continue; }
             const j = await r.json();
-            if (j.data) { await sleep(2100); return j.data; }
+            // une réponse incomplète (erreur côté AniList) n'est jamais gardée : on redemande
+            // (après 3 essais on garde quand même la réponse : un animé supprimé reste vide)
+            if (j.data && ((!j.errors && Object.values(j.data).every(v => v !== null)) || (t >= 3 && Object.values(j.data).some(v => v !== null)))) { await sleep(2100); return j.data; }
             console.log('  erreur', JSON.stringify(j.errors).slice(0, 200));
         } catch (e) { console.log('  réseau', e.message); }
         await sleep(5000);
@@ -31,10 +33,17 @@ const cached = async (name, fn) => {
 
 (async () => {
     // 1) les animés les plus populaires
-    const media = [];
+    // AniList ne va pas plus loin que 5 000 résultats par liste : au-delà, on repart d'une liste
+    // « moins populaires que le dernier vu » (tranches de 4 000)
+    const media = [], seenMedia = new Set();
+    const FIELDS = 'id format popularity favourites title{romaji english} coverImage{extraLarge large color} bannerImage relations{edges{relationType node{id type}}}';
+    let seg = 0, below = null;
     for (let p = 1; media.length < MAX_MEDIA; p++) {
-        const d = await cached('media-' + p, () => gql(`{Page(page:${p},perPage:50){pageInfo{hasNextPage} media(type:ANIME,sort:POPULARITY_DESC,isAdult:false){id format popularity favourites title{romaji english} coverImage{extraLarge large color} bannerImage relations{edges{relationType node{id type}}}}}}`));
-        media.push(...d.Page.media);
+        if (p > 80) { seg++; p = 1; below = media[media.length - 1].popularity + 1; } // tranche suivante
+        const name = seg ? `media-s${seg}-${p}` : 'media-' + p;
+        const filter = below ? `,popularity_lesser:${below}` : '';
+        const d = await cached(name, () => gql(`{Page(page:${p},perPage:50){pageInfo{hasNextPage} media(type:ANIME,sort:POPULARITY_DESC,isAdult:false${filter}){${FIELDS}}}}`));
+        for (const m of d.Page.media) if (!seenMedia.has(m.id)) { seenMedia.add(m.id); media.push(m); }
         console.log('animés :', media.length);
         if (!d.Page.pageInfo.hasNextPage) break;
     }
@@ -43,9 +52,15 @@ const cached = async (name, fn) => {
     const parent = new Map(media.map(m => [m.id, m.id]));
     const find = x => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
     const LINK = ['SEQUEL', 'PREQUEL', 'PARENT', 'SIDE_STORY', 'SPIN_OFF', 'ALTERNATIVE', 'SUMMARY', 'COMPILATION', 'CONTAINS'];
+    // les franchises déjà dans le jeu ne sont jamais fusionnées entre elles (les cartes des joueurs restent valables)
+    const OLD = path.join(CACHE, 'anilist-v1.json');
+    const oldRoot = new Set(fs.existsSync(OLD) ? JSON.parse(fs.readFileSync(OLD, 'utf8')).map(f => f.id) : []);
+    const hasOld = new Map(media.map(m => [m.id, oldRoot.has(m.id)]));
     for (const m of media) for (const e of m.relations.edges) if (e.node.type === 'ANIME' && LINK.includes(e.relationType) && byId.has(e.node.id)) {
         const a = find(m.id), b = find(e.node.id);
-        if (a !== b) { if (byId.get(a).popularity >= byId.get(b).popularity) parent.set(b, a); else parent.set(a, b); }
+        if (a === b || (hasOld.get(a) && hasOld.get(b))) continue;
+        const keep = byId.get(a).popularity >= byId.get(b).popularity ? a : b, gone = keep === a ? b : a;
+        parent.set(gone, keep); hasOld.set(keep, hasOld.get(a) || hasOld.get(b));
     }
     const fr = new Map();
     for (const m of media) { const r = find(m.id); if (!fr.has(r)) fr.set(r, []); fr.get(r).push(m); }
@@ -57,27 +72,28 @@ const cached = async (name, fn) => {
     franchises.sort((a, b) => pop(b) - pop(a));
     const cap = new Map(); // mediaId -> nb max de pages de 25 persos
     franchises.forEach((list, rank) => {
-        const root = rank < 40 ? 24 : rank < 120 ? 10 : rank < 400 ? 4 : 2;
+        const root = rank < 60 ? 30 : rank < 200 ? 12 : rank < 700 ? 5 : 2;
         list.forEach((m, i) => cap.set(m.id, i === 0 ? root : i < 4 ? Math.min(3, root) : 1));
     });
     // cache par (animé, page) : relu depuis les fichiers chars-<id>_<page>-….json déjà téléchargés
     const pageCache = new Map();
-    for (const f of fs.readdirSync(CACHE).filter(f => /^chars-[\d_-]+\.json$/.test(f))) {
-        const ids = f.slice(6, -5).split('-'), d = JSON.parse(fs.readFileSync(path.join(CACHE, f), 'utf8'));
+    // (fichiers cg-… : avec le sexe des persos, pour le booster Waifu)
+    for (const f of fs.readdirSync(CACHE).filter(f => /^cg-[\d_-]+\.json$/.test(f))) {
+        const ids = f.slice(3, -5).split('-'), d = JSON.parse(fs.readFileSync(path.join(CACHE, f), 'utf8'));
         ids.forEach((k, i) => { if (d['m' + i]) pageCache.set(k, d['m' + i].characters.nodes); });
     }
     console.log('pages de persos en cache :', pageCache.size);
     const full = (id, p) => p === 0 || (pageCache.get(id + '_' + p) || []).length === 25;
-    for (let p = 1; p <= 24; p++) {
+    for (let p = 1; p <= 30; p++) {
         const jobs = [...cap].filter(([id, c]) => p <= c && full(id, p - 1) && !pageCache.has(id + '_' + p)).map(([id]) => [id, p]);
         if (!jobs.length) continue;
         console.log(`page ${p} : ${jobs.length} animés à lire`);
-        for (let i = 0; i < jobs.length; i += 8) {
-            const part = jobs.slice(i, i + 8);
-            const d = await cached('chars-' + part.map(j => j.join('_')).join('-'), () =>
-                gql(`{${part.map(([id, pg], k) => `m${k}:Media(id:${id}){characters(sort:[FAVOURITES_DESC],perPage:25,page:${pg}){nodes{id favourites name{full userPreferred} image{large}}}}`).join(' ')}}`));
+        for (let i = 0; i < jobs.length; i += 16) {
+            const part = jobs.slice(i, i + 16);
+            const d = await cached('cg-' + part.map(j => j.join('_')).join('-'), () =>
+                gql(`{${part.map(([id, pg], k) => `m${k}:Media(id:${id}){characters(sort:[FAVOURITES_DESC],perPage:25,page:${pg}){nodes{id favourites gender name{full userPreferred} image{large}}}}`).join(' ')}}`));
             part.forEach(([id, pg], k) => pageCache.set(id + '_' + pg, d['m' + k] ? d['m' + k].characters.nodes : []));
-            if ((i / 8) % 25 === 0) console.log('  persos :', Math.min(i + 8, jobs.length), '/', jobs.length);
+            if ((i / 16) % 20 === 0) console.log('  persos :', Math.min(i + 16, jobs.length), '/', jobs.length);
         }
     }
     const chars = new Map(); // mediaId -> [persos]
@@ -113,10 +129,10 @@ const cached = async (name, fn) => {
         cs.forEach(c => taken.add(c.id));
         const top = rootOf(list);
         out.push({
-            id: top.id, title: clean(top.title.english || top.title.romaji), romaji: clean(top.title.romaji),
+            id: top.id, members: list.map(m => m.id), title: clean(top.title.english || top.title.romaji), romaji: clean(top.title.romaji),
             popularity: pop(list), color: top.coverImage.color,
             cover: top.coverImage.extraLarge || top.coverImage.large, banner: top.bannerImage,
-            chars: cs.map(c => ({ id: c.id, name: c.name.full || c.name.userPreferred, fav: c.favourites, img: c.image.large }))
+            chars: cs.map(c => ({ id: c.id, name: c.name.full || c.name.userPreferred, fav: c.favourites, img: c.image.large, g: c.gender === 'Female' ? 'F' : c.gender === 'Male' ? 'M' : null }))
         });
     }
     out.sort((a, b) => b.popularity - a.popularity);

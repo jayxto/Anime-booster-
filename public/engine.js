@@ -82,7 +82,8 @@ const PACKS = [
     { id: 'noel', n: 5, price: 900, emo: '🎄', name: 'Booster Noël', desc: '5 cartes, 1 carte Noël garantie.', type: 'season', season: 'noel', art: 7 },
     { id: 'valentin', n: 5, price: 900, emo: '💘', name: 'Booster Saint-Valentin', desc: '5 cartes, 1 carte Valentin garantie.', type: 'season', season: 'valentin', art: 8 },
     { id: 'ete', n: 5, price: 900, emo: '🏖️', name: 'Booster Été', desc: '5 cartes, 1 carte Été garantie.', type: 'season', season: 'ete', art: 9 },
-    { id: 'chance', n: 10, price: 10000, emo: '👑', name: 'Pack Chance', desc: '10 cartes, chance x10 sur tout.', type: 'chance', art: 10 }
+    { id: 'chance', n: 10, price: 10000, emo: '👑', name: 'Pack Chance', desc: '10 cartes, chance x10 sur tout.', type: 'chance', art: 10 },
+    { id: 'waifu', n: 5, price: 800, emo: '💖', name: 'Booster Waifu', desc: '5 cartes, que des waifus ! 1 épique min.', type: 'waifu', art: 11 }
 ];
 const ANIME_PACK_PRICE = 400;
 const MAX_COINS = 1e15; // reste un entier exact en JavaScript
@@ -104,7 +105,7 @@ const tierRate = (t, now) => t.rule === 'nuit' ? (isNight(now) ? t.rate : 0) : t
 
 function create(D) {
     const U = Object.keys(D.animes);
-    for (const u of U) { const a = D.animes[u]; a.idx = new Map(a.cards.map((c, i) => [c[0], i])); }
+    for (const u of U) { const a = D.animes[u]; a.idx = new Map(a.cards.map((c, i) => [c[0], i])); a.wf = []; a.cards.forEach((c, i) => { if (c[3]) a.wf.push(i); }); }
     const BY_POP = U.filter(u => u !== 'pokedex').sort((a, b) => D.animes[b].pop - D.animes[a].pop);
     // Éternelle et Oméga : les mêmes animés que sur Anime Game (sinon les plus populaires)
     const LEG = D.legacy || {};
@@ -118,6 +119,11 @@ function create(D) {
     const W = U.map(u => Math.sqrt(D.animes[u].pop || med)), WSUM = W.reduce((s, x) => s + x, 0);
     const PU = Object.fromEntries(U.map((u, i) => [u, W[i] / WSUM]));
     function pickAnime() { let r = Math.random() * WSUM; for (let i = 0; i < U.length; i++) { r -= W[i]; if (r <= 0) return U[i]; } return U[U.length - 1]; }
+    // booster Waifu : seulement les animés qui ont des persos féminins (plus il y en a, plus l'animé sort)
+    const WU = U.filter(u => D.animes[u].wf.length), WW = WU.map(u => Math.sqrt(D.animes[u].pop || med) * Math.min(3, Math.sqrt(D.animes[u].wf.length / 4))), WWSUM = WW.reduce((s, x) => s + x, 0);
+    function pickWaifuAnime() { let r = Math.random() * WWSUM; for (let i = 0; i < WU.length; i++) { r -= WW[i]; if (r <= 0) return WU[i]; } return WU[WU.length - 1]; }
+    const isWaifu = (u, n) => { const a = D.animes[u], i = a && a.idx.get(n); return i != null && !!a.cards[i][3]; };
+    const WAIFU_COUNT = WU.reduce((s, u) => s + D.animes[u].wf.length, 0);
     const imgUrl = p => !p ? null : /^https?:/.test(p) ? p : D.imgPrefix + p;
     const imgOf = (u, n) => { const a = D.animes[u]; const i = a && a.idx.get(n); return i == null ? null : imgUrl(a.cards[i][2]); };
     function seasonActive(id, now = Date.now()) {
@@ -188,31 +194,32 @@ function create(D) {
         S.best[c.rarity] = (S.best[c.rarity] || 0) + 1;
         return c;
     }
-    function randomOfRarity(rar) {
+    function randomOfRarity(rar, waifu) {
         const sp = TIER_BY_ID[rar];
         for (let t = 0; t < 60; t++) {
-            const u = pickAnime(), a = D.animes[u];
-            if (sp) { const l = specialList(u, rar); if (l.length) return specialCard(u, pick(l), rar, Math.random() < 0.3); continue; }
-            const idx = []; a.cards.forEach((c, i) => { if (c[1] === rar) idx.push(i); });
+            const u = waifu ? pickWaifuAnime() : pickAnime(), a = D.animes[u];
+            if (sp) { const l = specialList(u, rar).filter(n => !waifu || isWaifu(u, n)); if (l.length) return specialCard(u, pick(l), rar, Math.random() < 0.3); continue; }
+            const idx = []; a.cards.forEach((c, i) => { if (c[1] === rar && (!waifu || c[3])) idx.push(i); });
             if (idx.length) return baseCard(u, pick(idx), Math.random() < 0.3);
         }
         return null;
     }
     const packLuck = (p, boost) => (p.type === 'chance' ? 10 : 1) * Math.max(1, Math.min(MAX_LUCK, boost || 1));
     function openPack(S, p, now, boost) {
-        const luck = packLuck(p, boost), n = p.n;
-        // God Pack : que des cartes très rares
+        const luck = packLuck(p, boost), n = p.n, waifu = p.type === 'waifu' && WU.length > 0;
+        // God Pack : que des cartes très rares (que des waifus dans le booster Waifu)
         if (n >= 3 && Math.random() < Math.min(0.2, GOD_PACK_RATE * luck)) {
             const out = [];
             for (let i = 0; i < n; i++) {
                 const r = Math.random(), rar = r < 0.02 ? 'cosmique' : r < 0.06 ? 'divine' : r < 0.14 ? 'eveillee' : r < 0.3 ? 'secrete' : r < 0.6 ? 'mythique' : 'legendaire';
-                const c = randomOfRarity(rar); if (c) out.push(award(S, c, luck));
+                const c = randomOfRarity(rar, waifu) || randomOfRarity('legendaire', waifu); if (c) out.push(award(S, c, luck));
             }
             S.god++; out.god = true;
             return out;
         }
         const mult = (p.type === 'mythique' ? 4 : p.type === 'epique' ? 2 : 1) * luck;
-        const minRank = p.type === 'mythique' ? 3 : p.type === 'epique' || p.anime ? 2 : n >= 10 ? 1 : 0;
+        const minRank = p.type === 'mythique' ? 3 : p.type === 'epique' || p.anime || waifu ? 2 : n >= 10 ? 1 : 0;
+        if (waifu) return openWaifu(S, p, luck, mult, minRank, now);
         const act = Object.keys(D.seasons).filter(id => seasonActive(id, now) && seasonChars(id).length);
         const out = [];
         for (let i = 0; i < n; i++) {
@@ -251,6 +258,39 @@ function create(D) {
         }
         return out;
     }
+
+    // booster Waifu : que des persos féminins, versions spéciales comprises
+    function openWaifu(S, p, luck, mult, minRank, now) {
+        const out = [];
+        for (let i = 0; i < p.n; i++) {
+            const u = pickWaifuAnime(), a = D.animes[u], last = i === p.n - 1;
+            let special = null;
+            for (const t of TIERS_RAREST_FIRST) {
+                if (Math.random() >= tierRate(t, now) * mult) continue;
+                let l = specialList(u, t.id).filter(n => isWaifu(u, n)), cu = u;
+                if (!l.length) { // cette rareté ne touche pas de waifu de cet animé : on en cherche une ailleurs
+                    for (let k = 0; k < 30 && !l.length; k++) { cu = pickWaifuAnime(); l = specialList(cu, t.id).filter(n => isWaifu(cu, n)); }
+                    if (!l.length) continue;
+                }
+                special = specialCard(cu, pick(l), t.id, Math.random() < Math.min(0.9, luck / 10));
+                break;
+            }
+            if (special) { out.push(award(S, special, luck)); continue; }
+            // les waifus les plus aimées tombent plus souvent
+            const wf = a.wf, L = wf.length;
+            let idx = wf[Math.min(L - 1, Math.floor(Math.pow(Math.random(), 1.6 / Math.sqrt(luck)) * L))];
+            if (last && minRank && !out.some(c => (RANK[c.rarity] || 0) >= minRank)) {
+                for (let k = 0; k < 40; k++) {
+                    const u2 = k ? pickWaifuAnime() : u, ok = D.animes[u2].wf.filter(j => RANK[D.animes[u2].cards[j][1]] >= minRank);
+                    if (ok.length) { out.push(award(S, baseCard(u2, pick(ok), Math.random() < Math.min(0.9, SHINY_RATE * luck)), luck)); idx = -1; break; }
+                }
+                if (idx === -1) continue;
+            }
+            out.push(award(S, baseCard(u, idx, Math.random() < Math.min(0.9, SHINY_RATE * luck)), luck));
+        }
+        return out;
+    }
+    const waifuArt = () => { for (const u of BY_POP) { const a = D.animes[u]; if (a.wf.length) return imgUrl(a.cards[a.wf[0]][2]); } return null; };
 
     /* ---------- chances d'obtention (calculées avec les mêmes règles que le tirage) ---------- */
     // pour une carte tirée dans un pack normal (Pack Infini, boosters 3 / 10…)
@@ -338,7 +378,7 @@ function create(D) {
         return { ok: true, n, total };
     }
 
-    return { D, U, BY_POP, PU, imgUrl, imgOf, seasonActive, seasonChars, specialList, baseCard, specialCard, seasonCard, duoOf, cardOfKey, animePack, packFor, freeLeft, buy, dailyAmount, claimDaily, sellDupes, validKey, dayKey, slotOdds, baseShare, chanceOf, isNight };
+    return { D, U, BY_POP, PU, WU, WAIFU_COUNT, isWaifu, waifuArt, imgUrl, imgOf, seasonActive, seasonChars, specialList, baseCard, specialCard, seasonCard, duoOf, cardOfKey, animePack, packFor, freeLeft, buy, dailyAmount, claimDaily, sellDupes, validKey, dayKey, slotOdds, baseShare, chanceOf, isNight };
 }
 
 return { BASE, RAR, RAR_LABEL, RAR_COLOR, RANK, SPECIAL_TIERS, TIER_BY_ID, SEASON_COLOR, FINISHES, FIN_IDX, GOD_PACK_RATE, DUO_RATE, SEASON_RATE, SHINY_RATE, FREE_EVERY, SEASON_EMO, INFINITE, FREE_PACK, PACKS, ANIME_PACK_PRICE, MAX_COINS, MAX_LUCK, fresh, dayKey, isNight, create };

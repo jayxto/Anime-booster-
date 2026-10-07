@@ -70,6 +70,11 @@
 .sm-pack .pk-body { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: linear-gradient(160deg, #6a3aff, #ff3c7a);
   box-shadow: 0 22px 40px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.25) inset, 0 0 calc(20px + var(--pw) * 60px) color-mix(in srgb, var(--lit) calc(30% + var(--pw) * 60%), transparent);
   filter: brightness(calc(1 + var(--pw) * .8)); transition: filter .3s; }
+.sm-pack.pk-waifu .pk-body { background: linear-gradient(160deg, #ff9ccc, #ff4f9a 45%, #b03dff); }
+.sm-pack.pk-mythique .pk-body { background: linear-gradient(160deg, #ff3c7a, #ffb300 50%, #00c8ff); }
+.sm-pack.pk-epique .pk-body { background: linear-gradient(160deg, #c27bff, #6a2ad6); }
+.sm-pack.pk-chance .pk-body { background: linear-gradient(160deg, #fff1b0, #ffb300 45%, #c46a00); }
+.sm-pack.pk-duo .pk-body { background: linear-gradient(160deg, #5dffc8, #00a37a); }
 .sm-pack .pk-img { position: absolute; left: 8%; right: 8%; top: 11%; bottom: 24%; border-radius: 6px; background: #241a55 center top / cover no-repeat; box-shadow: 0 6px 16px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.3); }
 .sm-pack .pk-crimp { position: absolute; left: 0; right: 0; height: 7%; background: repeating-linear-gradient(90deg, rgba(255,255,255,.42) 0 3px, rgba(0,0,0,.14) 3px 6px); }
 .sm-pack .pk-crimp.t { top: 0; } .sm-pack .pk-crimp.b { bottom: 0; }

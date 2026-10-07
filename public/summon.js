@@ -388,7 +388,7 @@ function create(o) {
         if (cur.auto) stage.classList.add('quick');
         layout(); glow.size();
         const rest = packRest();
-        const e = el('div', 'sm-pack idle', `<div class="pk-in"><div class="pk-body"><div class="pk-img"></div><i class="pk-crimp t"></i><i class="pk-crimp b"></i><div class="pk-emo">${esc(p.emo || '')}</div><div class="pk-name">${esc(p.name || '')}</div></div></div>`);
+        const e = el('div', 'sm-pack idle' + (p.type ? ' pk-' + p.type : ''), `<div class="pk-in"><div class="pk-body"><div class="pk-img"></div><i class="pk-crimp t"></i><i class="pk-crimp b"></i><div class="pk-emo">${esc(p.emo || '')}</div><div class="pk-name">${esc(p.name || '')}</div></div></div>`);
         if (p.art) e.querySelector('.pk-img').style.backgroundImage = `url("${String(p.art).replace(/"/g, '%22')}")`;
         e.setAttribute('role', 'button'); e.setAttribute('aria-label', 'Pack : glisse-le dans le cercle ou touche-le'); e.tabIndex = 0;
         stage.append(e);

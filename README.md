@@ -26,18 +26,20 @@ npm start          # http://localhost:3000
 | `PORT` | Port du serveur (3000 par défaut). |
 
 ## Contenu
-- Les ~3 000 animés les plus populaires d'AniList, regroupés par franchise (saisons, films, spin-offs ensemble), + le Pokédex complet
+- Les ~7 000 animés les plus populaires d'AniList, regroupés par franchise (saisons, films, spin-offs ensemble), + le Pokédex complet ; jusqu'à 750 persos pour les plus grosses franchises
+- Une mise à jour des données garde les mêmes clés d'animés et les mêmes noms : les cartes déjà obtenues par les joueurs restent valables (`tools/cache/anilist-v1.json` et `cards-v1.json` servent de référence)
 - Chaque perso a la photo de **sa** fiche dans **son** animé (récupérée depuis la liste des persos de l'animé, pas par recherche de nom)
 - Les persos et animés qui existent dans Anime Game gardent leur nom (« Monkey D. Luffy », « Sangoku », « L'Attaque des Titans »)
 - ♾️ **Pack Infini** : gratuit et illimité, avec mode Auto (Espace = pack suivant)
 - 📖 **Classeur** : un classeur par animé (ses persos puis leurs versions spéciales), couverture en cuir, anneaux, pochettes 3×3, pages qui tournent (glisser un coin, flèches ou boutons), cartes manquantes en fantôme avec leur chance
-- 📚 **Classeur principal** : toutes les cartes du jeu (plus de 5 000 pages), avec « Aller à un animé » et « Mes cartes »
+- 📚 **Classeur principal** : toutes les cartes du jeu (des milliers de pages), avec « Aller à un animé » et « Mes cartes »
+- 💖 **Classeur Waifus** : tous les persos féminins du jeu
 - **Toutes les raretés d'Anime Game** : Commune → Mythique + 31 raretés spéciales (Secrète, Ombre, Stellaire, Éveillée, Minuit, Mirage, Divine, Éclat, Spectrale, Solaire, Lunaire, Céleste, Héroïque, Sacrée, Cosmique, Tempête, Infernale, Onirique, Glaciale, Corrompue, Légende vivante, Impériale, Éternelle, Démoniaque, Abyssale, Ancestrale, Dimensionnelle, Oméga, Chaos, Primordiale, Absolue), avec les mêmes taux et règles (Minuit seulement de minuit à 6 h, Éternelle sur les 10 animés phares, Oméga sur One Piece / Naruto / Dragon Ball)
 - **Les 28 finitions d'Anime Game** (Holographique, Reverse, Pailletée, Gold, Dark, Full Art, Manga, Galaxie, Glitch, Signée, Numérotée, Sceau de sang, Cristal, Chibi, Prismatique, Aurore boréale, Vitrail, Inversée, 8-bit, Néon, Feuille d'or, Électrique, En feu, Rétro VHS, Givrée, Aquarelle, Croquis, Sakura) avec leurs styles (`public/anime-game-cards.css`, repris par `tools/port-card-css.js`)
 - **🎲 Chances d'obtention** : onglet Stats (toutes les raretés, finitions, God Pack…) et sur chaque carte (fiche et classeur), calculées avec les mêmes règles que le tirage
 - **Ouverture « Cercle d'invocation »** : on glisse le pack dans un cercle runique (ou on le touche) ; le cercle s'allume rune après rune dans la couleur de la meilleure carte du pack, des colonnes de lumière montent, puis tout explose en lumière. Les cartes retombent face cachée autour du cercle et leur aura trahit leur rareté (lueur bleue, violette, flammes dès légendaire, halo tournant pour les raretés spéciales). Dès légendaire, la carte vient au centre : la salle s'assombrit, le cœur bat pour les plus rares, puis bannière, nom, chance d'obtention et finition. « Tout révéler » retourne toutes les cartes d'un coup (un seul éclair dans la couleur de la meilleure, dont la rareté s'affiche au centre du cercle). Dos de carte illustré (cadre doré, médaillon, monogramme AB) dont le cœur s'allume dans la couleur de la rareté. Mode auto, clavier (Espace / Échap) et téléphone. Pas de confettis : rien que de la lumière douce et des sons générés avec réverbération
 - Brillantes, God Pack (1/500), cartes Duo, cartes de saison (Halloween, Noël, Valentin, Été)
-- Boosters : 3, 10, Épique, Mythique, Duo, saisonniers, Pack Chance (x10), un booster par animé
+- Boosters : 3, 10, Épique, Mythique, Duo, saisonniers, Pack Chance (x10), **Waifu** (que des persos féminins, versions spéciales comprises, 1 épique min.), un booster par animé
 - Booster gratuit toutes les 2 h, cadeau du jour, vente des doublons, sons (bouton 🔊 pour couper)
 
 ## Mettre à jour les cartes

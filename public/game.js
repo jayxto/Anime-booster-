@@ -196,7 +196,7 @@ async function startOpen(p) {
     $('#op-count').textContent = p.infinite ? `♾️ Pack infini n°${fmt((S.infinite || 0) + 1)}` : p.name;
     $('#op-luck').textContent = luckNow() > 1 ? `🍀 Chance x${luckNow()}` : '';
     opened = { tok, p, cards: null, god: false, summed: false };
-    SM.open({ name: p.name, art: packArt(p), emo: p.emo, n: p.n, auto });
+    SM.open({ name: p.name, art: packArt(p), emo: p.emo, n: p.n, auto, type: p.type || (p.anime ? 'anime' : '') });
     setBar();
     // le pack est acheté tout de suite ; pendant ce temps le joueur le pose dans le cercle
     const buying = buyPack(p).then(r => { busy = false; if (r.ok && tok === openTok) lastPack = p; return r; });
@@ -281,6 +281,7 @@ document.addEventListener('keydown', e => {
 
 /* ---------- boutique ---------- */
 function packArt(p) {
+    if (p.type === 'waifu') return G.waifuArt();
     const u = p.anime || BY_POP[(p.art || 0) % BY_POP.length];
     const a = D.animes[u];
     return a ? imgUrl(a.cards[0][2]) : null;
@@ -293,7 +294,7 @@ function packHtml(p, off, tag) {
 }
 function renderShop() {
     const list = PACKS.filter(p => p.type !== 'season' || seasonActive(p.season));
-    $('#packs').innerHTML = list.map(p => packHtml(p, S.coins < p.price, p.type === 'season' ? 'ÉVÉNEMENT' : '')).join('');
+    $('#packs').innerHTML = list.map(p => packHtml(p, S.coins < p.price, p.type === 'season' ? 'ÉVÉNEMENT' : p.type === 'waifu' ? 'NOUVEAU' : '')).join('');
     $('#packs').querySelectorAll('.pack').forEach(el => el.onclick = () => startOpen(PACKS.find(x => x.id === el.dataset.id)));
     renderAnimePacks();
     renderFree();
@@ -363,10 +364,14 @@ function allCards() {
     out.push(...seasonCards(), ...ownedSpecials());
     return out;
 }
+// toutes les waifus du jeu, des animés les plus populaires aux moins connus
+let WAIFUS = null;
+const waifuCards = () => WAIFUS || (WAIFUS = BY_POP.flatMap(u => D.animes[u].wf.map(i => baseCard(u, i))));
 const sectionOf = c => c.season ? '🎃 Cartes de saison' : c.rarity === 'duo' ? '🤝 Cartes Duo' : TIER_BY_ID[c.rarity] ? '⭐ Raretés spéciales' : c.anime;
 const SPECIAL_BINDERS = {
     _all: { name: '📚 Classeur principal', main: true, cards: allCards },
     _special: { name: '⭐ Mes raretés spéciales', cards: ownedSpecials },
+    _waifu: { name: '💖 Waifus', cards: waifuCards },
     _saison: { name: '🎃 Cartes de saison', cards: seasonCards },
     _duo: { name: '🤝 Cartes Duo', cards: () => D.duos.map(d => duoOf(d)) }
 };
@@ -390,7 +395,7 @@ function renderLibrary() {
     const sp = q ? [] : Object.keys(SPECIAL_BINDERS).map(u => ({ u, ...libStats(u), special: true }));
     const all = [...sp, ...us];
     const totalAll = U.reduce((s, u) => s + D.animes[u].cards.length, 0);
-    $('#lib-prog').textContent = `${fmt(Object.keys(S.cards).length)} cartes différentes · ${fmt(totalAll)} persos dans ${fmt(U.length)} animés · ${SPECIAL_TIERS.length} raretés spéciales · ${FINISHES.length} finitions`;
+    $('#lib-prog').textContent = `${fmt(Object.keys(S.cards).length)} cartes différentes · ${fmt(totalAll)} persos dans ${fmt(U.length)} animés · ${fmt(G.WAIFU_COUNT)} waifus · ${SPECIAL_TIERS.length} raretés spéciales · ${FINISHES.length} finitions`;
     $('#library').innerHTML = all.slice(0, libShown).map(b => {
         const a = D.animes[b.u], sb = SPECIAL_BINDERS[b.u], name = sb ? sb.name : a.name;
         const cover = sb ? null : (a.cover || imgUrl(a.cards[0][2]));

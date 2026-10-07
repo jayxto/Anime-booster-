@@ -60,6 +60,9 @@ select { background: var(--panel); color: var(--txt); border: 1px solid #3a3170;
 .pack .pk-n { font-weight: 800; font-size: 15px; line-height: 1.2; }
 .pack .pk-d { color: #d6cff5; font-size: 12px; margin: 2px 0 8px; }
 .pack .pk-p { font-weight: 800; color: var(--gold); }
+.pack[data-id="waifu"] { border-color: rgba(255,120,190,.7); background: linear-gradient(160deg, #ff6fae, #6a1f6e); box-shadow: 0 0 22px rgba(255,90,170,.35); }
+.pack[data-id="waifu"]::after { background: linear-gradient(to top, rgba(60,0,40,.92) 30%, rgba(255,80,160,.15) 75%), repeating-linear-gradient(115deg, transparent 0 18px, rgba(255,255,255,.05) 18px 19px); }
+.pack[data-id="waifu"] .pk-tag { background: linear-gradient(90deg, #ff4f9a, #b03dff); }
 .pack .pk-tag { position: absolute; top: 10px; right: 10px; z-index: 2; background: #ff3c7a; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; }
 
 /* cartes : fond, image, effet de finition, reflet, textes (même structure que les cartes d'Anime Game) */

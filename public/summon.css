@@ -111,15 +111,16 @@
 @keyframes smTease { 0%, 100% { translate: 0 0; rotate: 0deg; } 25% { translate: -2px 1px; rotate: -1.4deg; } 75% { translate: 2px -1px; rotate: 1.4deg; } }
 
 /* dos de carte : illustration dorée (dessinée dans summon.js), monogramme et nom dans la police du jeu */
-.sm-in > .back { border-radius: 10px; overflow: hidden; container-type: inline-size; background: var(--ab-back) center / 100% 100% no-repeat, #120b38;
+.sm-in > .back { border-radius: 10px; overflow: hidden; container-type: inline-size; background: var(--ab-back) center / 100% 100% no-repeat, #2c040b;
   box-shadow: 0 10px 22px rgba(0,0,0,.5); }
-.sm-in > .back .bk-glow { position: absolute; left: 50%; top: 47.14%; width: 76%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 22%, transparent) 0 44%, color-mix(in srgb, var(--c) 85%, #fff) 58%, color-mix(in srgb, var(--c) 40%, transparent) 70%, transparent 84%); }
-.sm-in > .back .bk-mono { position: absolute; left: 0; right: 0; top: 47.14%; translate: 0 -52%; text-align: center; font: 900 16.5cqw/1 "Cinzel", Georgia, "Times New Roman", serif; letter-spacing: .02em;
-  background: linear-gradient(170deg, #fff8dc 10%, #f0c862 42%, #a8731b 62%, #f7dc90 85%); -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 1px 0 rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.6)) drop-shadow(0 0 8px rgba(255,214,120,.3)); }
-.sm-in > .back .bk-name { position: absolute; left: 18%; right: 18%; top: 86.6%; translate: 0 -50%; text-align: center; white-space: nowrap; overflow: hidden;
-  font: 700 5.4cqw/1 "Cinzel", Georgia, serif; letter-spacing: .14em; text-transform: uppercase; color: #f3d27c; text-shadow: 0 1px 0 rgba(0,0,0,.7); }
+/* la lueur de rareté entoure le soleil d'or */
+.sm-in > .back .bk-glow { position: absolute; left: 50%; top: 42.6%; width: 64%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, transparent 0 74%, color-mix(in srgb, var(--c) 85%, #fff) 84%, color-mix(in srgb, var(--c) 40%, transparent) 92%, transparent 100%); }
+.sm-in > .back .bk-mono { position: absolute; left: 0; right: 0; top: 43%; translate: 0 -50%; text-align: center; font: 900 18.4cqw/1 "Cinzel", Georgia, "Times New Roman", serif;
+  color: #7a0c1c; text-shadow: 0 1px 0 rgba(255,240,200,.45); }
+.sm-in > .back .bk-seal { position: absolute; left: 79.5%; top: 78%; translate: -50% -50%; rotate: -5deg; font: 900 10.8cqw/1 "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif; color: #ffe9dc; }
+.sm-in > .back .bk-name { position: absolute; left: 6%; right: 6%; top: 91.6%; translate: 0 -50%; text-align: center; white-space: nowrap; overflow: hidden;
+  font: 700 4.6cqw/1 "Cinzel", Georgia, serif; letter-spacing: .22em; padding-left: .22em; text-transform: uppercase; color: #f3d27c; }
 @container (max-width: 96px) { .sm-in > .back .bk-name { display: none; } }
 /* reflet qui balaie le dos */
 .sm-in > .back::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light;
@@ -135,7 +136,7 @@
 .sm-in > .back.t4 { box-shadow: 0 0 0 2px #fff, 0 0 22px var(--c), 0 0 52px var(--c); }
 .sm-in > .back.t5 { box-shadow: 0 0 0 2px #fff, 0 0 26px #fff, 0 0 60px var(--c); }
 .sm-in > .back.t4 .bk-glow, .sm-in > .back.t5 .bk-glow { background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a);
-  -webkit-mask: radial-gradient(closest-side, transparent 46%, #000 58%, #000 66%, transparent 82%); mask: radial-gradient(closest-side, transparent 46%, #000 58%, #000 66%, transparent 82%); animation: bkGlow 1.3s ease-in-out infinite, ang 2.4s linear infinite; }
+  -webkit-mask: radial-gradient(closest-side, transparent 72%, #000 81%, #000 90%, transparent 100%); mask: radial-gradient(closest-side, transparent 72%, #000 81%, #000 90%, transparent 100%); animation: bkGlow 1.3s ease-in-out infinite, ang 2.4s linear infinite; }
 .sm-in > .back.t4::before, .sm-in > .back.t5::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 3px; pointer-events: none; z-index: 1;
   background: conic-gradient(from var(--ang), #ff3c7a, #ffb300, #39ff9a, #00f0ff, #7b5cff, #ff3c7a);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: ang 2.2s linear infinite; }

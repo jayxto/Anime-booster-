@@ -177,53 +177,35 @@ function circleSvg() {
 
 /* ---------- dos de carte : illustration dessinée une fois (SVG), posée en fond de chaque dos ---------- */
 function cardBackSvg() {
-    const P = (r, a, cx = 250, cy = 330) => [(cx + r * Math.cos(a * Math.PI / 180)).toFixed(1), (cy + r * Math.sin(a * Math.PI / 180)).toFixed(1)];
-    // rayons qui partent du médaillon
-    let rays = '';
-    for (let i = 0; i < 36; i++) { const a = i * 10, [x1, y1] = P(560, a - 2.2), [x2, y2] = P(560, a + 2.2); rays += `<path d="M250 330L${x1} ${y1}L${x2} ${y2}Z"/>`; }
-    // graduations autour du médaillon
-    let ticks = '';
-    for (let i = 0; i < 72; i++) { const a = i * 5, [x1, y1] = P(150, a), [x2, y2] = P(i % 3 ? 156 : 161, a); ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; }
-    // étoile à huit branches
-    const star = (ro, ri, rot = 0) => Array.from({ length: 16 }, (_, i) => P(i % 2 ? ri : ro, rot - 90 + i * 22.5).join(',')).join(' ');
-    const tips = Array.from({ length: 8 }, (_, i) => { const [x, y] = P(141, -90 + i * 45); return `<circle cx="${x}" cy="${y}" r="4.5" fill="url(#g)"/>`; }).join('');
-    const dots = Array.from({ length: 24 }, (_, i) => { const [x, y] = P(108, i * 15); return `<circle cx="${x}" cy="${y}" r="${i % 2 ? 1.4 : 2.4}"/>`; }).join('');
-    // ornement d'angle (dessiné en haut à gauche puis retourné pour les trois autres)
-    const corner = `<path d="M30 112C30 64 64 30 112 30" stroke-width="2.4"/><path d="M44 96C44 66 66 44 96 44" stroke-width="1.2"/>`
-        + `<path d="M52 40l12 12-12 12-12-12z" fill="url(#g)" stroke="none"/><path d="M40 52l12 12" stroke-width="1"/>`
-        + `<circle cx="112" cy="30" r="3.5" fill="url(#g)" stroke="none"/><circle cx="30" cy="112" r="3.5" fill="url(#g)" stroke="none"/>`
-        + `<path d="M66 66q22 6 34 30M66 66q6 22 30 34" stroke-width="1.4"/>`;
-    const corners = ['', 'translate(500 0) scale(-1 1)', 'translate(0 700) scale(1 -1)', 'translate(500 700) scale(-1 -1)'].map(t => `<g transform="${t}">${corner}</g>`).join('');
-    const sideGem = x => `<path d="M${x} 330l10 14-10 14-10-14z" fill="url(#g)"/><path d="M${x} 270v44M${x} 374v44" stroke="url(#g)" stroke-width="1.4"/>`;
+    // dos « Sakura impérial » : laque rouge, soleil d'or, branche de cerisier, vagues seigaiha et sceau hanko
+    // (le monogramme AB, le kanji du sceau et le nom du jeu sont posés par-dessus en HTML, dans la police du jeu)
+    const P = (r, a, cx = 0, cy = 0) => [+(cx + r * Math.cos(a * Math.PI / 180)).toFixed(1), +(cy + r * Math.sin(a * Math.PI / 180)).toFixed(1)];
+    let seed = 11; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    let waves = '';
+    for (let row = 0; row < 24; row++) { const y = 476 + row * 10, off = row % 2 ? 20 : 0; for (let x = -20 + off; x <= 520; x += 40) waves += `<g transform="translate(${x} ${y})"><circle r="20" fill="#5e0b18"/><circle r="20"/><circle r="14"/><circle r="8.5"/><circle r="3.5"/></g>`; }
+    const petal = '<path d="M0 0C-8 -6 -9 -16 -4 -21L0 -17L4 -21C9 -16 8 -6 0 0Z" fill="#ffd9e3" stroke="#f08aa9" stroke-width=".9"/>';
+    const flower = (x, y, k) => `<g transform="translate(${x} ${y}) scale(${k})">${[0, 72, 144, 216, 288].map(a => `<g transform="rotate(${a})">${petal}</g>`).join('')}<circle r="3.6" fill="#d81b60"/>${[0, 72, 144, 216, 288].map(a => { const [px, py] = P(6.5, a - 90); return `<circle cx="${px}" cy="${py}" r="1.1" fill="#ffe082"/>`; }).join('')}</g>`;
+    const blooms = [[62, 238, 1], [118, 207, .8], [206, 170, 1.15], [236, 112, .8], [300, 150, 1], [372, 228, .9], [408, 108, 1.1], [468, 80, .8], [176, 138, .7], [330, 196, .7]].map(b => flower(...b)).join('');
+    let petals = '';
+    for (let i = 0; i < 16; i++) { const x = (40 + rnd() * 420).toFixed(1), y = (250 + rnd() * 300).toFixed(1); petals += `<ellipse cx="${x}" cy="${y}" rx="5" ry="3" fill="#ffc6d6" fill-opacity="${(.55 + rnd() * .4).toFixed(2)}" transform="rotate(${(rnd() * 180).toFixed(0)} ${x} ${y})"/>`; }
+    const kumi = '<path d="M44 26l18 18-18 18-18-18z" fill="none" stroke-width="1.6"/><path d="M44 34l10 10-10 10-10-10z" fill="url(#g)" stroke="none"/>';
+    const corners = ['', 'translate(500 0) scale(-1 1)', 'translate(0 700) scale(1 -1)', 'translate(500 700) scale(-1 -1)'].map(t => `<g transform="${t}">${kumi}</g>`).join('');
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700"><defs>`
-        + `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff5d1"/><stop offset=".28" stop-color="#e9bf5c"/><stop offset=".5" stop-color="#a5711a"/><stop offset=".74" stop-color="#f6d887"/><stop offset="1" stop-color="#b78427"/></linearGradient>`
-        + `<linearGradient id="bg" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#2a1d72"/><stop offset=".5" stop-color="#160f45"/><stop offset="1" stop-color="#090619"/></linearGradient>`
-        + `<radialGradient id="gl" cx=".5" cy=".471" r=".55"><stop offset="0" stop-color="#9b7bff" stop-opacity=".6"/><stop offset=".35" stop-color="#5b3fd6" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`
-        + `<radialGradient id="core" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#3a2a8f"/><stop offset=".7" stop-color="#170f45"/><stop offset="1" stop-color="#0c0828"/></radialGradient>`
-        + `<pattern id="lat" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(45 250 330)"><path d="M0 0H30M0 0V30" stroke="#e9bf5c" stroke-opacity=".11" fill="none"/><circle cx="15" cy="15" r="1.2" fill="#e9bf5c" fill-opacity=".2"/></pattern>`
-        + `<clipPath id="in"><rect x="30" y="30" width="440" height="640" rx="16"/></clipPath></defs>`
-        + `<rect width="500" height="700" rx="28" fill="#07051a"/><rect x="12" y="12" width="476" height="676" rx="24" fill="url(#bg)"/>`
-        + `<g clip-path="url(#in)"><rect width="500" height="700" fill="url(#lat)"/><g fill="#f3d27c" fill-opacity=".055">${rays}</g><rect width="500" height="700" fill="url(#gl)"/></g>`
-        // cadre doré
-        + `<rect x="13" y="13" width="474" height="674" rx="24" fill="none" stroke="url(#g)" stroke-width="9"/>`
-        + `<rect x="28" y="28" width="444" height="644" rx="16" fill="none" stroke="url(#g)" stroke-width="2.2"/>`
-        + `<rect x="37" y="37" width="426" height="626" rx="11" fill="none" stroke="#e9bf5c" stroke-opacity=".5" stroke-dasharray="1.5 6" stroke-linecap="round" stroke-width="1.6"/>`
-        + `<g fill="none" stroke="url(#g)">${corners}</g>${sideGem(28)}${sideGem(472)}`
-        // en haut : petit losange et filets
-        + `<path d="M140 78H218M282 78H360" stroke="url(#g)" stroke-width="1.6"/><path d="M250 60l18 18-18 18-18-18z" fill="url(#g)"/><path d="M250 70l8 8-8 8-8-8z" fill="#120b38"/>`
-        + `<circle cx="132" cy="78" r="3" fill="url(#g)"/><circle cx="368" cy="78" r="3" fill="url(#g)"/>`
-        // médaillon central
-        + `<circle cx="250" cy="330" r="172" fill="none" stroke="url(#g)" stroke-width="1" stroke-opacity=".55"/>`
-        + `<g stroke="url(#g)" stroke-width="1.3">${ticks}</g><circle cx="250" cy="330" r="148" fill="none" stroke="url(#g)" stroke-width="2.6"/>`
-        + `<polygon points="${star(136, 104, 22.5)}" fill="#120b38" fill-opacity=".55" stroke="url(#g)" stroke-width="1.2" stroke-opacity=".7"/>`
-        + `<polygon points="${star(136, 100)}" fill="#160e44" stroke="url(#g)" stroke-width="2.4" stroke-linejoin="round"/>${tips}`
-        + `<g fill="#e9bf5c" fill-opacity=".85">${dots}</g>`
-        + `<circle cx="250" cy="330" r="92" fill="url(#core)" stroke="url(#g)" stroke-width="6"/><circle cx="250" cy="330" r="80" fill="none" stroke="url(#g)" stroke-width="1.2"/>`
-        // en bas : banderole pour le nom du jeu
-        + `<path d="M96 582H404L420 606L404 630H96L80 606Z" fill="#120b38" stroke="url(#g)" stroke-width="2.6" stroke-linejoin="round"/>`
-        + `<path d="M104 590H396L407 606L396 622H104L93 606Z" fill="none" stroke="#e9bf5c" stroke-opacity=".55" stroke-width="1"/>`
-        + `<path d="M250 646l9 9-9 9-9-9z" fill="url(#g)"/><path d="M170 655H232M268 655H330" stroke="url(#g)" stroke-width="1.2"/>`
-        + `</svg>`;
+        + `<radialGradient id="bg" cx=".5" cy=".42" r=".75"><stop offset="0" stop-color="#a3172c"/><stop offset=".55" stop-color="#6a0d1b"/><stop offset="1" stop-color="#2c040b"/></radialGradient>`
+        + `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1c4"/><stop offset=".35" stop-color="#e3b04f"/><stop offset=".6" stop-color="#a8741c"/><stop offset="1" stop-color="#f6d887"/></linearGradient>`
+        + `<radialGradient id="sun" cx=".42" cy=".38"><stop offset="0" stop-color="#fff5d8"/><stop offset=".6" stop-color="#f3cf7a"/><stop offset="1" stop-color="#cf9234"/></radialGradient>`
+        + `<linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset=".64" stop-color="#000"/><stop offset=".76" stop-color="#fff"/></linearGradient>`
+        + `<mask id="wm"><rect width="500" height="700" fill="url(#fade)"/></mask><clipPath id="in"><rect x="22" y="22" width="456" height="656" rx="16"/></clipPath></defs>`
+        + `<rect width="500" height="700" rx="26" fill="#2c040b"/>`
+        + `<g clip-path="url(#in)"><rect width="500" height="700" fill="url(#bg)"/>`
+        + `<g mask="url(#wm)" fill="none" stroke="#e3b04f" stroke-opacity=".38" stroke-width="1.3">${waves}</g>`
+        + `<circle cx="250" cy="298" r="146" fill="none" stroke="url(#g)" stroke-opacity=".55" stroke-width="1.5"/><circle cx="250" cy="298" r="130" fill="url(#sun)"/>`
+        + `<g fill="none" stroke="#2a0407" stroke-linecap="round"><path d="M-20 252C80 232 140 182 230 176S380 122 520 70" stroke-width="13"/><path d="M150 192C170 152 192 130 232 112" stroke-width="6"/><path d="M298 152C320 190 334 210 372 230" stroke-width="5"/><path d="M380 126C392 112 400 108 410 108" stroke-width="4"/></g>`
+        + `${blooms}${petals}`
+        + `<g transform="translate(352 506) rotate(-5)"><rect width="84" height="84" rx="7" fill="#d0182c"/><rect x="6" y="6" width="72" height="72" rx="4" fill="none" stroke="#ffe3d0" stroke-width="2.4"/></g>`
+        + `<rect x="0" y="616" width="500" height="48" fill="#3a0610" fill-opacity=".92"/><path d="M22 616H478M22 664H478" stroke="url(#g)" stroke-width="1.4"/></g>`
+        + `<rect x="13" y="13" width="474" height="674" rx="23" fill="none" stroke="url(#g)" stroke-width="7"/><rect x="28" y="28" width="444" height="644" rx="14" fill="none" stroke="url(#g)" stroke-width="1.4"/>`
+        + `<g stroke="url(#g)">${corners}</g></svg>`;
 }
 let backReady = false;
 function installCardBack() {
@@ -231,8 +213,8 @@ function installCardBack() {
     backReady = true;
     document.documentElement.style.setProperty('--ab-back', `url("data:image/svg+xml,${encodeURIComponent(cardBackSvg())}")`);
 }
-// dos de carte : l'illustration + le monogramme et le nom (police du jeu) + une lueur de la couleur de la rareté
-const backHtml = lv => `<div class="back t${Math.min(5, lv)}"><i class="bk-glow"></i><b class="bk-mono">AB</b><span class="bk-name">Anime Boosters</span></div>`;
+// dos de carte : l'illustration + le monogramme, le kanji du sceau et le nom (polices du jeu) + une lueur de la couleur de la rareté
+const backHtml = lv => `<div class="back t${Math.min(5, lv)}"><i class="bk-glow"></i><b class="bk-mono">AB</b><b class="bk-seal">桜</b><span class="bk-name">Anime Boosters</span></div>`;
 
 function create(o) {
     const stage = o.stage, ui = o.ui;

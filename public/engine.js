@@ -276,9 +276,9 @@ function create(D) {
                 break;
             }
             if (special) { out.push(award(S, special, luck)); continue; }
-            // les waifus les plus aimées tombent plus souvent
+            // les waifus les plus aimées tombent bien plus souvent que les persos secondaires
             const wf = a.wf, L = wf.length;
-            let idx = wf[Math.min(L - 1, Math.floor(Math.pow(Math.random(), 1.6 / Math.sqrt(luck)) * L))];
+            let idx = wf[Math.min(L - 1, Math.floor(Math.pow(Math.random(), 2.8 / Math.sqrt(luck)) * L))];
             if (last && minRank && !out.some(c => (RANK[c.rarity] || 0) >= minRank)) {
                 for (let k = 0; k < 40; k++) {
                     const u2 = k ? pickWaifuAnime() : u, ok = D.animes[u2].wf.filter(j => RANK[D.animes[u2].cards[j][1]] >= minRank);

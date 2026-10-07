@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "fetch": "node tools/fetch-anilist.js 3000",
+    "fetch": "node tools/fetch-anilist.js 7000",
     "build": "echo \"Cartes déjà prêtes dans public/cards.json (pour les refaire en local : npm run cards)\"",
     "cards": "node tools/build-cards.js"
   },

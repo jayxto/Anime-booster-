@@ -22,7 +22,9 @@ const slug = s => deaccent(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(
 const tokens = s => deaccent(s).toLowerCase().replace(/uchiwa/g, 'uchiha').replace(/[^a-z0-9 ]+/g, ' ').replace(/ou|oo/g, 'o').replace(/uu/g, 'u').split(/\s+/).filter(w => w.length > 1);
 const keyOf = s => tokens(s).sort().join(' ');
 
-const list = anilist.map(f => ({ ...f, chars: f.chars.map(c => ({ ...c, display: c.name, key: keyOf(c.name) })) }));
+// espaces en trop ou retours à la ligne dans certains noms AniList (les anciens noms gardent leur forme exacte)
+const tidy = s => String(s || '').replace(/\s+/g, ' ').trim();
+const list = anilist.map(f => ({ ...f, chars: f.chars.map(c => ({ ...c, display: tidy(c.name), key: keyOf(c.name) })) }));
 
 // version précédente du jeu (tools/cache/anilist-v1.json + cards-v1.json) : on garde les mêmes clés d'animés,
 // les mêmes noms de persos et toutes les anciennes cartes, pour que les collections des joueurs restent valables

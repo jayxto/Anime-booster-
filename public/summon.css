@@ -6,9 +6,12 @@
 .opening { position: fixed; inset: 0; z-index: 50; display: none; overflow: hidden; background: #05040b; color: var(--txt);
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .opening.on { display: block; }
-.sm-stage { --lit: #9fd0ff; --pw: 0; position: absolute; inset: 0; overflow: hidden; transition: --lit 1s ease; }
+.sm-stage { --lit: #9fd0ff; --pw: 0; position: absolute; inset: 0; z-index: 1; overflow: hidden; transition: --lit 1s ease; }
 .sm-stage.quick { transition-duration: .35s; }
 .sm-glow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none; mix-blend-mode: screen; }
+.sm-spot .sm-glow-spot { z-index: 2; }
+.opening.spotting .op-god { opacity: 0; }
+.op-god { transition: opacity .3s; }
 
 /* ---------- décor : salle sombre, brume, sol de pierre ---------- */
 .sm-bg { position: absolute; inset: 0; background: radial-gradient(120% 95% at 50% 38%, #1c1440, #0a0718 58%, #020106); }
@@ -95,8 +98,10 @@
 .sm-slot .sm-tilt, .sm-big { perspective: 900px; }
 .up > .sm-float .sm-in, .sm-big.up .sm-in, .sm-slot.up .sm-in { transform: rotateY(180deg); }
 .sm-slot.instant .sm-in { transition: none; }
-.sm-in > .back, .sm-in > .card { position: absolute; inset: 0; width: auto; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.sm-in > .card { transform: rotateY(180deg); }
+/* la carte est posée dans un « recto » qui se retourne : certaines raretés animent la carte elle-même */
+.sm-in > .back, .sm-in > .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.sm-in > .face { transform: rotateY(180deg); }
+.sm-in > .face > .card { position: absolute; inset: 0; width: auto; }
 .sm-slot.tease .sm-in { animation: smTease .09s linear infinite; }
 @keyframes smTease { 0%, 100% { translate: 0 0; rotate: 0deg; } 25% { translate: -2px 1px; rotate: -1.4deg; } 75% { translate: 2px -1px; rotate: 1.4deg; } }
 
@@ -161,9 +166,11 @@
   background: linear-gradient(to top, color-mix(in srgb, var(--c) 55%, #fff), color-mix(in srgb, var(--c) 45%, transparent) 45%, transparent 95%); }
 .sm-spot .sp-glow { position: absolute; left: 50%; top: var(--sy); width: calc(var(--bw) * 3.2); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; opacity: 0;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 60%, transparent), color-mix(in srgb, var(--c) 18%, transparent) 55%, transparent); }
+.sm-spot.pale .sp-glow { filter: opacity(.45); } .sm-spot.pale .sp-pillar::before { opacity: .45; } .sm-spot.pale .sp-rays { filter: blur(6px) opacity(.6); }
+.sm-spot.pale .sm-big .sm-in > .face > .card { box-shadow: 0 0 22px rgba(255,255,255,.7), 0 0 60px rgba(255,255,255,.35); }
 .sm-big { position: absolute; left: 50%; top: var(--sy); width: var(--bw); aspect-ratio: 5 / 7; translate: -50% -50%; z-index: 3; }
 .sm-big .sm-aura { inset: -14%; filter: blur(18px); }
-.sm-big .sm-in > .card { box-shadow: 0 0 36px var(--c), 0 0 90px color-mix(in srgb, var(--c) 60%, transparent); }
+.sm-big .sm-in > .face > .card { box-shadow: 0 0 36px var(--c), 0 0 90px color-mix(in srgb, var(--c) 60%, transparent); }
 .sm-big .sm-in > .back { container-type: inline-size; }
 .sm-big.up .sm-flames, .sm-big.up .sm-halo, .sm-big.up .sm-aura { opacity: 0; transition: opacity .35s; }
 .sm-big.charge .sm-in { animation: smTease .07s linear infinite; }
@@ -186,7 +193,7 @@
 .sm-sub .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .sm-sub .chips span { padding: 4px 11px; border-radius: 99px; font-weight: 800; font-size: 13px; background: rgba(10,8,24,.8); border: 1px solid color-mix(in srgb, var(--c) 60%, #3a3170); }
 .sm-sub .chips .odds { color: #39ff9a; }
-.sm-skip { position: absolute; left: 0; right: 0; bottom: calc(var(--uih, 120px) + 10px); z-index: 4; text-align: center; color: rgba(255,255,255,.7); font-weight: 700; font-size: 13px; opacity: 0; pointer-events: none; }
+.sm-skip { margin-top: 6px; color: rgba(255,255,255,.7); font-weight: 700; font-size: 13px; opacity: 0; }
 .sm-flash { position: absolute; inset: 0; z-index: 70; pointer-events: none; opacity: 0; mix-blend-mode: screen;
   background: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), #fff, color-mix(in srgb, var(--c, #fff) 70%, #fff) 26%, color-mix(in srgb, var(--c, #fff) 30%, transparent) 60%, transparent 85%); }
 

@@ -16,6 +16,8 @@ const lvlOf = r => r >= 9.5 ? 8 : r >= 8 ? 7 : r >= 7 ? 6 : r >= 5 ? 5 : r >= 4 
 const el = (tag, cls, html) => { const d = document.createElement(tag); if (cls) d.className = cls; if (html != null) d.innerHTML = html; return d; };
 const centerOf = e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height }; };
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+// raretés très claires (Oméga, Absolue…) : on dose la lumière pour ne pas tout blanchir
+const lum = hex => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim()); if (!m) return 0.5; const n = parseInt(m[1], 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------- déroulé annulable : tout s'arrête net quand on ferme ou qu'on passe au pack suivant ---------- */
@@ -186,6 +188,8 @@ function create(o) {
         <div class="f-spin f-sigil">${SV.sigil}</div>
         <i class="f-core"></i></div>
       <div class="sm-pillars"></div><div class="sm-slots"></div><div class="sm-spot"></div><div class="sm-flash"></div>`;
+    if (o.canvas) { o.canvas.style.zIndex = 20; stage.append(o.canvas); }
+    const cvSpot = el('canvas', 'sm-glow sm-glow-spot'), glowS = makeGlow(cvSpot);
     const floor = stage.querySelector('.sm-floor'), slotsBox = stage.querySelector('.sm-slots'), pillarsBox = stage.querySelector('.sm-pillars');
     const spot = stage.querySelector('.sm-spot'), flashEl = stage.querySelector('.sm-flash');
     const runesBox = floor.querySelector('.f-runes'), sigil = floor.querySelector('.f-sigil');
@@ -212,15 +216,18 @@ function create(o) {
         const uih = ui ? ui.getBoundingClientRect().height : 120;
         const topM = 54, botM = uih + 8, n = cur ? cur.n : 5, sBack = 0.8;
         const avail = H - topM - botM;
+        // écran en hauteur (téléphone) : on regarde le cercle plus d'en haut pour utiliser la place
+        const kMax = H / W > 1.3 ? 0.95 : n >= 8 ? 0.72 : 0.62;
         let rx = Math.min(W * 0.45, 440), ry = 0, w = 0, h = 0, k = 0.5;
         for (let i = 0; i < 60; i++) {
             const per = r => 2 * Math.PI * Math.sqrt((r * r + (r * k) ** 2) / 2) / n;
-            w = Math.min(per(rx) * 0.8, W < 640 ? 122 : 164); h = w * 1.4;
+            w = Math.min(per(rx) * 0.8, W < 640 ? 132 : 164); h = w * 1.4;
             // plus l'écran est haut, plus on voit le cercle d'au-dessus
-            k = clamp((avail - h * sBack * 1.12 - h * 0.16) / (2 * rx), 0.46, n >= 8 ? 0.72 : 0.62);
+            k = clamp((avail - h * sBack * 1.12 - h * 0.16) / (2 * rx), 0.46, kMax);
             ry = rx * k;
-            w = Math.min(per(rx) * 0.8, W < 640 ? 122 : 164); h = w * 1.4;
-            if (ry * 2 + h * sBack * 1.12 + h * 0.16 <= avail || rx < 80) break;
+            w = Math.min(per(rx) * 0.8, W < 640 ? 132 : 164); h = w * 1.4;
+            const fitsH = ry * 2 + h * sBack * 1.12 + h * 0.16 <= avail, fitsW = rx + w * 0.5 + 10 <= W / 2;
+            if ((fitsH && fitsW) || rx < 70) break;
             rx *= 0.96;
         }
         const minCy = topM + ry + h * sBack * 1.12, maxCy = H - botM - ry - h * 0.16;
@@ -306,7 +313,7 @@ function create(o) {
     function reset() {
         if (run) run.kill();
         run = new Run();
-        glow.clear(); clearInterval(ambT);
+        glow.clear(); glowS.clear(); clearInterval(ambT); o.root.classList.remove('spotting');
         slotsBox.innerHTML = ''; pillarsBox.innerHTML = ''; spot.className = 'sm-spot'; spot.innerHTML = '';
         floor.querySelectorAll('.f-wave').forEach(w => w.remove());
         stage.querySelectorAll('.sm-pack').forEach(p => p.remove());
@@ -387,7 +394,8 @@ function create(o) {
             R.on(e, 'keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); fly(); } });
         });
     }
-    function tapPack() { if (cur && cur.fly) cur.fly(); }
+    // renvoie vrai si le pack attendait encore d'être posé
+    function tapPack() { if (cur && cur.fly && cur.pack && cur.pack.state === 'rest') { cur.fly(); return true; } return false; }
     function setAuto(v) { if (!cur) return; cur.auto = !!v; stage.classList.toggle('quick', cur.auto); if (v && cur.fly && cur.pack && cur.pack.state === 'rest') cur.fly(); }
 
     /* ----- le cercle se charge dans la couleur de la meilleure carte, puis tout explose ----- */
@@ -466,7 +474,7 @@ function create(o) {
         const e = el('div', `sm-slot l${lv}`);
         e.style.setProperty('--c', col); e.style.setProperty('--bd', (-Math.random() * 3.4).toFixed(2) + 's');
         e.tabIndex = 0; e.setAttribute('role', 'button'); e.setAttribute('aria-label', 'Carte face cachée : touche pour la retourner');
-        e.innerHTML = `<i class="sm-pool"></i><div class="sm-float"><div class="sm-tilt">${auraHtml(lv)}<div class="sm-in"><div class="back t${Math.min(5, lv)}"><i class="emb"></i></div>${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div></div>`;
+        e.innerHTML = `<i class="sm-pool"></i><div class="sm-float"><div class="sm-tilt">${auraHtml(lv)}<div class="sm-in"><div class="back t${Math.min(5, lv)}"><i class="emb"></i></div><div class="face">${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div></div></div>`;
         slotsBox.append(e);
         const sl = { el: e, card, ci, lvl: lv, rank: r, color: col, up: false, busy: false };
         run.on(e, 'click', () => onSlot(sl));
@@ -524,6 +532,7 @@ function create(o) {
     async function spotlight(sl, fast, fromAll) {
         const R = run, lv = sl.lvl, card = sl.card, col = sl.color;
         cur.spot = sl;
+        o.root.classList.add('spotting');
         const W = L.W, H = L.H, uih = L.botM, isSpecial = lv >= 5, label = o.labelOf(card);
         // place : bannière au-dessus, carte au centre, nom et chance en dessous
         const bannerH = isSpecial ? 112 : 88, subH = 96, room = H - uih - L.topM - bannerH - subH;
@@ -532,14 +541,15 @@ function create(o) {
         const smallTxt = card.season ? 'Carte de saison' : card.rarity === 'duo' ? 'Carte duo' : isSpecial ? 'Rareté spéciale' : '';
         const odds = o.oddsOf ? o.oddsOf(card) : '';
         const fin = o.finishOf ? o.finishOf(card) : '';
-        spot.className = `sm-spot on l${lv}`;
+        const pale = lum(col) > 0.78;
+        spot.className = `sm-spot on l${lv}${pale ? ' pale' : ''}`;
         spot.style.setProperty('--c', col); spot.style.setProperty('--sy', sy + 'px'); spot.style.setProperty('--syp', (sy / H * 100).toFixed(1) + '%'); spot.style.setProperty('--bw', bw + 'px');
         spot.style.setProperty('--bt', (sy - bh / 2 - bannerH + 4) + 'px'); spot.style.setProperty('--st', (sy + bh / 2 + 14) + 'px');
         spot.innerHTML = `<div class="sp-dim"></div><div class="sp-pillar"></div><div class="sp-rays"></div><div class="sp-glow"></div>
-          <div class="sm-big l${lv}" style="--c:${col}">${auraHtml(lv)}<div class="sm-in"><div class="back t${Math.min(5, lv)}"><i class="emb"></i></div>${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div>
+          <div class="sm-big l${lv}" style="--c:${col}">${auraHtml(lv)}<div class="sm-in"><div class="back t${Math.min(5, lv)}"><i class="emb"></i></div><div class="face">${o.cardHtml(card, { isNew: card.isNew, coins: card.coins })}</div></div></div>
           <div class="sm-banner ${lv <= 4 ? 'ribbon' : ''}">${smallTxt ? `<small>${esc(smallTxt)}</small>` : ''}<b>${esc(label)}</b></div>
-          <div class="sm-sub"><div class="nm">${esc(card.name)}</div><div class="an">${esc(card.anime || '')}</div><div class="chips">${odds ? `<span class="odds">🎲 ${esc(odds)}</span>` : ''}${fin ? `<span>${esc(fin)}</span>` : ''}${card.shiny ? '<span>✨ Brillante</span>' : ''}${card.isNew ? '<span style="color:#39ff9a">Nouvelle !</span>' : ''}</div></div>
-          <div class="sm-skip">Touche pour continuer</div>`;
+          <div class="sm-sub"><div class="nm">${esc(card.name)}</div><div class="an">${esc(card.anime || '')}</div><div class="chips">${odds ? `<span class="odds">🎲 ${esc(odds)}</span>` : ''}${fin ? `<span>${esc(fin)}</span>` : ''}${card.shiny ? '<span>✨ Brillante</span>' : ''}${card.isNew ? '<span style="color:#39ff9a">Nouvelle !</span>' : ''}</div><div class="sm-skip">Touche pour continuer</div></div>`;
+        spot.insertBefore(cvSpot, spot.querySelector('.sm-big')); glowS.size();
         const big = spot.querySelector('.sm-big'), dim = spot.querySelector('.sp-dim'), rays = spot.querySelector('.sp-rays'), pil = spot.querySelector('.sp-pillar'), gl = spot.querySelector('.sp-glow');
         const banner = spot.querySelector('.sm-banner'), sub = spot.querySelector('.sm-sub'), skip = spot.querySelector('.sm-skip');
         // la carte quitte sa place et vient devant, encore face cachée
@@ -558,25 +568,25 @@ function create(o) {
         const beats = fast ? (lv >= 7 ? 1 : 0) : lv >= 8 ? 3 : lv >= 6 ? 2 : lv >= 5 ? 1 : 0;
         for (let i = 0; i < beats; i++) { audio.heart(0.45 + i * 0.1); flash(col, W / 2, sy, 0.25 + i * 0.08, 320); shake(3 + i * 2, 220); await R.wait(520); }
         const cc = { x: W / 2, y: sy };
-        glow.spiral(cc.x, cc.y, bw * 1.3, 1, fast ? 10 : 18 + lv * 4, col, 700 * k + 200);
+        glowS.spiral(cc.x, cc.y, bw * 1.3, 1, fast ? 10 : 18 + lv * 4, col, 700 * k + 200);
         await R.wait((fast ? 200 : 520 + Math.min(4, lv - 3) * 90));
         // révélation
         big.classList.remove('charge');
         big.style.setProperty('--flip', fast ? '.45s' : '.75s');
         big.classList.add('up');
         flash(col, cc.x, cc.y, lv >= 7 ? 1 : 0.85, lv >= 7 ? 900 : 620);
-        glow.flare(cc.x, cc.y, Math.max(W, H) * (0.45 + lv * 0.04), col, 1300, 1);
-        glow.ring(cc.x, cc.y, bw * 2.2, col, 900, 0.6); glow.ring(cc.x, cc.y, bw * 1.3, '#ffffff', 600, 0.5);
+        glowS.flare(cc.x, cc.y, Math.max(W, H) * (0.4 + lv * 0.03), col, 1300, pale ? 0.5 : 0.9);
+        glowS.ring(cc.x, cc.y, bw * 2.2, col, 900, 0.6); glowS.ring(cc.x, cc.y, bw * 1.3, '#ffffff', 600, 0.5);
         shake(fast ? 5 : 8 + lv * 2, 520);
         audio.boom(0.95 + lv * 0.06); audio.chord(lv); audio.shimmer(8 + lv);
         if (lv >= 4) audio.choir(lv >= 7 ? 131 : lv >= 5 ? 165 : 196, 3.6, 0.065);
-        if (lv >= 7 && !fast) { setTimeout(() => { if (R.dead) return; flash('#ffffff', cc.x, cc.y, 1, 700); glow.ring(cc.x, cc.y, Math.max(W, H) * 0.7, '#ffffff', 1100, 0.6); shake(18, 600); audio.boom(1.2); }, 420); }
+        if (lv >= 7 && !fast) { setTimeout(() => { if (R.dead) return; flash('#ffffff', cc.x, cc.y, 1, 700); glowS.ring(cc.x, cc.y, Math.max(W, H) * 0.7, '#ffffff', 1100, 0.6); shake(18, 600); audio.boom(1.2); }, 420); }
         R.fire(rays, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 900 * k, easing: 'ease-out', fill: 'forwards' });
         R.fire(banner, [{ opacity: 0, transform: 'scale(2.2)', filter: 'blur(10px)' }, { opacity: 1, transform: 'scale(1)', filter: 'blur(0)' }], { duration: 520, delay: 160 * k, easing: 'cubic-bezier(.2,1.25,.4,1)', fill: 'both' });
         R.fire(sub, [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: 420 * k, fill: 'both' });
         const orbBox = { x: cc.x - bw * 1.2, y: cc.y - bh * 0.6, w: bw * 2.4, h: bh * 1.2 };
-        glow.orbs(fast ? 10 : 22 + lv * 6, col, orbBox, { rise: 0.75, max: 22, life: 3800 });
-        if (lv >= 4) glow.orbs(fast ? 4 : 10, '#ffffff', orbBox, { rise: 0.5, min: 3, max: 9, life: 3000 });
+        glowS.orbs(fast ? 10 : 18 + lv * 3, col, orbBox, { rise: 0.75, max: pale ? 14 : 20, alpha: pale ? 0.55 : 0.8, life: 3800 });
+        if (lv >= 4) glowS.orbs(fast ? 4 : 10, '#ffffff', orbBox, { rise: 0.5, min: 2, max: 7, alpha: 0.7, life: 3000 });
         // on attend que le joueur touche (ou un petit moment en « Tout révéler » et en auto)
         const minShow = fast ? 1100 : 900;
         await R.wait(minShow);
@@ -606,7 +616,8 @@ function create(o) {
         await R.anim(big, [{ transform: 'none' }, { transform: toT }], { duration: fast ? 260 : 420, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' });
         sl.el.style.visibility = ''; sl.up = true;
         void sl.el.offsetWidth; sl.el.classList.remove('instant');
-        spot.className = 'sm-spot'; spot.innerHTML = '';
+        spot.className = 'sm-spot'; spot.innerHTML = ''; glowS.clear();
+        o.root.classList.remove('spotting');
         cur.spot = null;
         glow.ring(sl.fx, sl.fy, L.w * 1.6, col, 700, 0.5);
     }
@@ -618,7 +629,7 @@ function create(o) {
     // « Tout révéler » : une carte après l'autre, de la moins rare à la plus rare
     async function revealAll(fast) {
         if (!cur || !cur.slots || cur.allRunning) return;
-        cur.allRunning = true;
+        cur.allRunning = true; hint('');
         const R = run;
         try {
             if (cur.skipSpot) cur.skipSpot();
@@ -635,19 +646,19 @@ function create(o) {
     function close() {
         if (run) run.kill();
         run = null; cur = null;
-        clearInterval(ambT); glow.clear(); audio.ambient(false);
+        clearInterval(ambT); glow.clear(); glowS.clear(); audio.ambient(false); o.root.classList.remove('spotting');
         slotsBox.innerHTML = ''; pillarsBox.innerHTML = ''; spot.className = 'sm-spot'; spot.innerHTML = '';
         stage.querySelectorAll('.sm-pack').forEach(p => p.remove());
         runes.forEach(b => b.classList.remove('on'));
         stage.classList.remove('awake', 'lit', 'rainbow', 'quick'); setPower(0); setLit(NEUTRAL); speed(1);
     }
-    root.addEventListener('resize', () => { if (cur) { layout(); glow.size(); } });
+    root.addEventListener('resize', () => { if (cur) { layout(); glow.size(); if (cur.spot) glowS.size(); } });
     return {
         open, drop, ignite, revealAll, close, tapPack, setAuto,
         dealt: () => !!(cur && cur.dealt),
         hidden: () => !!(cur && cur.slots && cur.slots.some(s => !s.up)),
         busy: () => !!(cur && (cur.spot || cur.allRunning)),
-        skip: () => { if (cur && cur.skipSpot) cur.skipSpot(); },
+        skip: () => { if (cur && cur.skipSpot) { cur.skipSpot(); return true; } return false; },
         STOP
     };
 }

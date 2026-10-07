@@ -79,7 +79,7 @@ function setEvent(ev) {
     EVENT = ev && ev.luck > 1 ? { luck: ev.luck, until: ev.left ? Date.now() + ev.left : null } : { luck: 1, until: null };
     const now = luckNow(), id = now > 1 ? `${ev.id}:${now}` : null;
     // l'annonce ne s'affiche qu'une fois par événement
-    if (booted && id && id !== eventSeen) { toast(`🍀 Chance x${now} activée sur tout le serveur !`, 5000); sfx('luck'); FX.rain({ colors: ['#39ff14', '#ffe600', '#fff'], duration: 1800 }); }
+    if (booted && id && id !== eventSeen) { toast(`🍀 Chance x${now} activée sur tout le serveur !`, 5000); sfx('luck'); glowPulse('#event-banner'); }
     if (booted && now <= 1 && before > 1) toast('L’événement chance est terminé.');
     eventSeen = id;
     renderEvent();
@@ -187,7 +187,7 @@ async function buyPack(p) {
 }
 async function startOpen(p) {
     if (busy) return;
-    if (p.price && S.coins < p.price) { stopAuto(auto ? 'Plus assez de pièces : mode auto arrêté.' : ''); if (!auto) toast('Pas assez de pièces !'); return; }
+    if (p.price && S.coins < p.price) { if (auto) stopAuto('Plus assez de pièces : mode auto arrêté.'); else toast('Pas assez de pièces !'); return; }
     busy = true; clearTimeout(autoT);
     const tok = ++openTok;
     $('#opening').classList.add('on'); $('#opening').dataset.pack = tok;
@@ -199,7 +199,7 @@ async function startOpen(p) {
     SM.open({ name: p.name, art: packArt(p), emo: p.emo, n: p.n, auto });
     setBar();
     // le pack est acheté tout de suite ; pendant ce temps le joueur le pose dans le cercle
-    const buying = buyPack(p).then(r => { busy = false; return r; });
+    const buying = buyPack(p).then(r => { busy = false; if (r.ok && tok === openTok) lastPack = p; return r; });
     try {
         await SM.drop();
         const r = await buying;
@@ -213,6 +213,7 @@ async function startOpen(p) {
         if (tok !== openTok) return;
         setBar();
         if (auto) await autoReveal(tok);
+        else if (opened.wantAll) SM.revealAll(false);
     } catch (e) { if (!isStop(e)) console.error(e); }
 }
 // mode auto : tout se révèle vite, puis le pack suivant arrive ; il ne s'arrête jamais tout seul
@@ -235,7 +236,7 @@ function showSummary() {
 // Espace : poser le pack, puis tout révéler, puis pack suivant
 function next() {
     if (!opened) return;
-    if (!SM.dealt()) { SM.tapPack(); return; }
+    if (!SM.dealt()) { if (!SM.tapPack()) opened.wantAll = true; return; } // Espace pendant l'animation : tout se révélera ensuite
     if (SM.hidden()) { SM.revealAll(false); return; }
     nextPack();
 }
@@ -252,7 +253,7 @@ $('#op-close').onclick = closeOpen;
 $('#op-again').onclick = nextPack;
 $('#op-auto').onclick = () => {
     if (auto) return stopAuto();
-    const p = lastPack || (opened && opened.p);
+    const p = (opened && opened.p) || lastPack;
     if (!p || p.free) return toast('Le mode auto marche avec les packs payants et le Pack Infini.');
     auto = true; $('#op-auto').classList.add('on'); $('#op-auto').textContent = '⏸ Stop';
     SM.setAuto(true);
@@ -273,7 +274,7 @@ document.addEventListener('keydown', e => {
     }
     if ($('#opening').classList.contains('on')) {
         if (e.defaultPrevented) return;
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (SM.busy()) SM.skip(); else next(); }
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!SM.skip()) next(); }
         if (e.key === 'Escape') closeOpen();
     }
 });
@@ -646,7 +647,7 @@ async function ping() {
 }
 function showGifts(inbox) {
     const total = (inbox || []).reduce((s, g) => s + (g.amount || 0), 0);
-    if (total > 0) { sfx('coins'); toast(`🎁 Tu as reçu ${fmt(total)} pièces de l'admin !`, 5000); FX.rain({ colors: ['#ffd700', '#fff6c2'], duration: 1500 }); renderShop(); }
+    if (total > 0) { sfx('coins'); toast(`🎁 Tu as reçu ${fmt(total)} pièces de l'admin !`, 5000); glowPulse('.wallet'); renderShop(); }
     else if (total < 0) toast(`L'admin t'a retiré ${fmt(-total)} pièces.`, 5000);
 }
 
@@ -710,6 +711,8 @@ $('#ev-off').onclick = () => setServerLuck(1, 0);
 /* ---------- divers ---------- */
 let toastT = 0;
 function toast(t, ms = 2600) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
+// petite lueur sur un élément (pièces reçues, événement) — pas de confettis
+function glowPulse(sel) { const el = $(sel); if (!el) return; el.classList.remove('pulse-glow'); void el.offsetWidth; el.classList.add('pulse-glow'); }
 function renderCoins() { $('#coins').textContent = fmt(S.coins); }
 function currentTab() { const b = document.querySelector('nav button.on'); return b ? b.dataset.tab : 'shop'; }
 function showTab(tab) {
@@ -725,7 +728,6 @@ function renderAll() { renderCoins(); renderAccount(); renderEvent(); showTab(cu
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 setInterval(() => { renderFree(); if (EVENT.luck > 1) { if (luckNow() <= 1) setEvent(null); else renderEvent(); } }, 30e3);
 $('#mute').textContent = MUTED ? '🔇' : '🔊';
-FX.init($('#fx'));
 
 Promise.all([
     fetch('cards.json').then(r => r.json()),

@@ -40,6 +40,8 @@ function pgStore(url) {
     const pool = new Pool({ connectionString: url, ssl: pgSslFor(url), max: 8 });
     const row = r => r ? { id: r.id, email: r.email, pseudo: r.pseudo, pass: r.pass, admin: r.admin, state: r.state, created: +new Date(r.created_at) } : null;
     const one = async (sql, args) => row((await pool.query(sql, args)).rows[0]);
+    const TSEL = 'SELECT t.*, a.pseudo AS from_pseudo, b.pseudo AS to_pseudo FROM ab_trades t JOIN ab_users a ON a.id=t.from_id JOIN ab_users b ON b.id=t.to_id';
+    const trow = r => r ? { id: r.id, from: r.from_id, to: r.to_id, fromPseudo: r.from_pseudo, toPseudo: r.to_pseudo, give: r.give, take: r.take, status: r.status, at: +new Date(r.created_at), upd: +new Date(r.updated_at) } : null;
     return {
         kind: 'Postgres',
         async init() {
@@ -49,6 +51,10 @@ function pgStore(url) {
             await pool.query(`CREATE TABLE IF NOT EXISTS ab_sessions (hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
             await pool.query(`CREATE TABLE IF NOT EXISTS ab_grants (id SERIAL PRIMARY KEY, admin_id INTEGER, user_id INTEGER, amount DOUBLE PRECISION, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
             await pool.query(`CREATE TABLE IF NOT EXISTS ab_settings (key TEXT PRIMARY KEY, value JSONB)`);
+            await pool.query(`CREATE TABLE IF NOT EXISTS ab_trades (id SERIAL PRIMARY KEY, from_id INTEGER NOT NULL, to_id INTEGER NOT NULL, give JSONB NOT NULL, take JSONB NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS ab_trades_to ON ab_trades (to_id, status)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS ab_trades_from ON ab_trades (from_id, status)`);
         },
         async getSetting(k) { const r = (await pool.query('SELECT value FROM ab_settings WHERE key=$1', [k])).rows[0]; return r ? r.value : null; },
         async setSetting(k, v) { await pool.query('INSERT INTO ab_settings (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [k, JSON.stringify(v)]); },
@@ -64,6 +70,26 @@ function pgStore(url) {
                 FROM ab_users WHERE pseudo_lc LIKE $1 ORDER BY pseudo_lc LIMIT $2`, ['%' + q.toLowerCase().replace(/[%_\\]/g, '\\$&') + '%', limit]);
             return r.rows.map(x => ({ id: x.id, pseudo: x.pseudo, coins: x.coins, cards: x.cards, created: +new Date(x.created_at) }));
         },
+        // joueurs publics : les plus grosses collections d'abord
+        async players(q, limit) {
+            const r = await pool.query(`SELECT id, pseudo, state->'profile' AS profile, (SELECT count(*) FROM jsonb_object_keys(COALESCE(state->'cards', '{}'::jsonb)))::int AS cards
+                FROM ab_users WHERE pseudo_lc LIKE $1 ORDER BY cards DESC, pseudo_lc LIMIT $2`, ['%' + q.toLowerCase().replace(/[%_\\]/g, '\\$&') + '%', limit]);
+            return r.rows.map(x => ({ id: x.id, pseudo: x.pseudo, cards: x.cards, profile: x.profile || {} }));
+        },
+        async tradeAdd(t) { return (await pool.query('INSERT INTO ab_trades (from_id, to_id, give, take) VALUES ($1,$2,$3,$4) RETURNING id', [t.from, t.to, JSON.stringify(t.give), JSON.stringify(t.take)])).rows[0].id; },
+        async tradeGet(id) { return trow((await pool.query(TSEL + ' WHERE t.id=$1', [id])).rows[0]); },
+        // passe d'un statut à l'autre seulement si personne ne l'a fait avant (deux clics en même temps)
+        async tradeSet(id, from, to) { return (await pool.query('UPDATE ab_trades SET status=$3, updated_at=now() WHERE id=$1 AND status=$2', [id, from, to])).rowCount === 1; },
+        async tradesOf(uid) {
+            const r = await pool.query(TSEL + ` WHERE (t.from_id=$1 OR t.to_id=$1) AND (t.status='pending' OR t.updated_at > now() - interval '14 days')
+                ORDER BY (t.status='pending') DESC, t.updated_at DESC LIMIT 40`, [uid]);
+            return r.rows.map(trow);
+        },
+        async tradeCount(uid) {
+            const r = (await pool.query(`SELECT count(*) FILTER (WHERE to_id=$1)::int AS inc, count(*) FILTER (WHERE from_id=$1)::int AS out
+                FROM ab_trades WHERE status='pending' AND (to_id=$1 OR from_id=$1)`, [uid])).rows[0];
+            return { in: r.inc, out: r.out };
+        },
         async sessionSet(h, uid) { await pool.query('INSERT INTO ab_sessions (hash, user_id) VALUES ($1,$2) ON CONFLICT (hash) DO NOTHING', [h, uid]); },
         async sessionGet(h) { const r = (await pool.query('SELECT user_id FROM ab_sessions WHERE hash=$1', [h])).rows[0]; return r ? r.user_id : null; },
         async sessionDel(h) { await pool.query('DELETE FROM ab_sessions WHERE hash=$1', [h]); },
@@ -72,12 +98,14 @@ function pgStore(url) {
     };
 }
 function fileStore(file) {
-    let db = { seq: 0, users: [], sessions: {}, grants: [], settings: {} };
+    let db = { seq: 0, users: [], sessions: {}, grants: [], settings: {}, tseq: 0, trades: [] };
     try { db = Object.assign(db, JSON.parse(fs.readFileSync(file, 'utf8'))); } catch (_) {}
     let t = 0;
     const write = () => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file + '.tmp', JSON.stringify(db)); fs.renameSync(file + '.tmp', file); };
     const persist = () => { clearTimeout(t); t = setTimeout(write, 300); };
     const find = f => db.users.find(f) || null;
+    const pseudoOf = id => (find(u => u.id === id) || { pseudo: '?' }).pseudo;
+    const tfull = t => ({ ...t, fromPseudo: pseudoOf(t.from), toPseudo: pseudoOf(t.to) });
     return {
         kind: 'fichier ' + path.relative(__dirname, file),
         async init() {},
@@ -92,6 +120,20 @@ function fileStore(file) {
             return db.users.filter(u => u.pseudo.toLowerCase().includes(l)).sort((a, b) => a.pseudo.localeCompare(b.pseudo)).slice(0, limit)
                 .map(u => ({ id: u.id, pseudo: u.pseudo, coins: (u.state && u.state.coins) || 0, cards: Object.keys((u.state && u.state.cards) || {}).length, created: u.created }));
         },
+        async players(q, limit) {
+            const l = q.toLowerCase();
+            return db.users.filter(u => u.pseudo.toLowerCase().includes(l)).map(u => ({ id: u.id, pseudo: u.pseudo, cards: Object.keys((u.state && u.state.cards) || {}).length, profile: (u.state && u.state.profile) || {} }))
+                .sort((a, b) => b.cards - a.cards || a.pseudo.localeCompare(b.pseudo)).slice(0, limit);
+        },
+        async tradeAdd(t) { const id = ++db.tseq; db.trades.push({ ...t, id, status: 'pending', at: Date.now(), upd: Date.now() }); persist(); return id; },
+        async tradeGet(id) { const t = db.trades.find(x => x.id === id); return t ? tfull(t) : null; },
+        async tradeSet(id, from, to) { const t = db.trades.find(x => x.id === id); if (!t || t.status !== from) return false; t.status = to; t.upd = Date.now(); persist(); return true; },
+        async tradesOf(uid) {
+            const old = Date.now() - 14 * 864e5;
+            return db.trades.filter(t => (t.from === uid || t.to === uid) && (t.status === 'pending' || t.upd > old))
+                .sort((a, b) => (b.status === 'pending') - (a.status === 'pending') || b.upd - a.upd).slice(0, 40).map(tfull);
+        },
+        async tradeCount(uid) { let i = 0, o = 0; for (const t of db.trades) if (t.status === 'pending') { if (t.to === uid) i++; if (t.from === uid) o++; } return { in: i, out: o }; },
         async sessionSet(h, uid) { db.sessions[h] = { uid, at: Date.now() }; persist(); },
         async sessionGet(h) { return db.sessions[h] ? db.sessions[h].uid : null; },
         async sessionDel(h) { delete db.sessions[h]; persist(); },
@@ -105,7 +147,18 @@ const store = process.env.DATABASE_URL ? pgStore(process.env.DATABASE_URL) : fil
 
 /* ---------- joueurs en mémoire (le serveur fait foi pour les pièces et les cartes) ---------- */
 const USERS = new Map(), LOADING = new Map(), DIRTY = new Set();
-function hydrate(u) { u.state = Object.assign(Engine.fresh(), u.state || {}); USERS.set(u.id, u); return u; }
+function hydrate(u) {
+    const legacy = !!u.state && !u.state.done; // partie d'avant les récompenses de classeur
+    u.state = Object.assign(Engine.fresh(), u.state || {});
+    USERS.set(u.id, u);
+    if (legacy) { // les paliers déjà atteints sont payés d'un coup
+        const rw = G.checkBinders(u.state, Object.keys(u.state.cards).map(k => k.split('|')[0]));
+        const total = rw.reduce((s, r) => s + r.coins, 0);
+        if (total) (u.state.inbox = u.state.inbox || []).push({ amount: total, kind: 'binders', n: rw.length, at: Date.now() });
+        DIRTY.add(u.id);
+    }
+    return u;
+}
 async function userById(id) {
     if (USERS.has(id)) return USERS.get(id);
     if (!LOADING.has(id)) LOADING.set(id, store.byId(id).then(u => u ? (USERS.get(id) || hydrate(u)) : null).finally(() => LOADING.delete(id)));
@@ -161,13 +214,13 @@ const ipOf = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAd
 
 /* ---------- réponses ---------- */
 const meOf = u => u ? { pseudo: u.pseudo, admin: isAdmin(u) } : null;
-const STATS = ['coins', 'opened', 'pulled', 'best', 'god', 'infinite', 'lastFree', 'lastDaily', 'streak'];
+const STATS = ['coins', 'opened', 'pulled', 'best', 'god', 'infinite', 'lastFree', 'lastDaily', 'streak', 'trades', 'profile'];
 // ce qui a changé après une action (pas toute la collection)
 function patchOf(S, keys) {
     const p = {};
     for (const k of STATS) p[k] = S[k];
     p.entries = {};
-    for (const k of keys || []) p.entries[k] = S.cards[k];
+    for (const k of keys || []) p.entries[k] = S.cards[k] || null; // null : la carte est partie (échange)
     return p;
 }
 const publicState = S => { const s = { ...S }; delete s.inbox; return s; };
@@ -196,6 +249,34 @@ function sanitizeImport(S) {
     return out;
 }
 
+/* ---------- profils, joueurs et échanges ---------- */
+const qs = req => new URL(req.url, 'http://x').searchParams;
+const titleLabel = id => { const t = Engine.TITLES.find(x => x.id === id); return t ? t.label : null; };
+const ownedOf = (S, k) => k && S.cards[k] ? { k, n: S.cards[k].n, shiny: S.cards[k].shiny || 0, fin: S.cards[k].fin || null } : null;
+function profileOf(user, viewer) {
+    const S = user.state, st = G.profileStats(S), pr = S.profile || {};
+    const tid = pr.title && st.titles.includes(pr.title) ? pr.title : st.titles[st.titles.length - 1];
+    const mine = !!viewer && viewer.id === user.id;
+    return {
+        pseudo: user.pseudo, joined: user.created || null, mine, title: titleLabel(tid), titleId: tid,
+        avatar: ownedOf(S, pr.avatar) || ownedOf(S, st.bestKey), avatarSet: !!ownedOf(S, pr.avatar),
+        showcase: (pr.showcase || []).map(k => ownedOf(S, k)).filter(Boolean),
+        stats: { cards: st.cards, specials: st.specials, waifus: st.waifus, done: st.done, trades: st.trades, opened: st.opened, god: st.god },
+        titles: mine ? st.titles : undefined
+    };
+}
+async function userByPseudo(p) { const f = p && await store.byPseudo(String(p).trim().slice(0, 40)); return f ? userById(f.id) : null; }
+const tradeId = v => { const n = Math.floor(+v); return Number.isSafeInteger(n) && n > 0 && n < 2 ** 31 ? n : 0; };
+const keyList = v => Array.isArray(v) ? [...new Set(v.filter(k => typeof k === 'string' && k.length < 300))] : [];
+const animesOf = ks => ks.map(k => k.split('|')[0]).filter(u => G.D.animes[u]);
+function notify(user, msg) { (user.state.inbox = user.state.inbox || []).push({ ...msg, at: Date.now() }); DIRTY.add(user.id); }
+const RANK_OF = new Map(); // rang d'une carte d'après sa clé (tri des collections)
+function rankOfKey(k) {
+    let r = RANK_OF.get(k);
+    if (r === undefined) { const c = G.cardOfKey(k); r = c ? Engine.RANK[c.rarity] || 0 : -1; if (RANK_OF.size < 400000) RANK_OF.set(k, r); }
+    return r;
+}
+
 /* ---------- API ---------- */
 const API = {
     'GET /api/me': async (req, u) => ({ me: meOf(u), state: u ? publicState(u.state) : null, event: eventInfo() }),
@@ -211,6 +292,7 @@ const API = {
         if (await store.byPseudo(pseudo)) return { error: 'Ce pseudo est déjà pris.' };
         const admin = ADMIN_EMAILS.length ? ADMIN_EMAILS.includes(email) : (await store.count()) === 0;
         const state = b.importGuest ? sanitizeImport(b.guest) : Engine.fresh();
+        G.syncBinders(state); // paliers des classeurs importés notés, sans pièces
         let user;
         try { user = hydrate(await store.create({ email, pseudo, pass: hashPass(pw), admin, state })); }
         catch (e) { return { error: 'Cet e-mail ou ce pseudo est déjà pris.' }; }
@@ -241,7 +323,7 @@ const API = {
         const r = G.buy(u.state, String(b.id || ''), Date.now(), currentLuck());
         if (!r.ok) return { error: r.error };
         DIRTY.add(u.id);
-        return { cards: r.cards, god: r.god, patch: patchOf(u.state, r.cards.map(c => c.key)) };
+        return { cards: r.cards, god: r.god, rewards: r.rewards, patch: patchOf(u.state, r.cards.map(c => c.key)) };
     },
 
     'POST /api/daily': async (req, u) => {
@@ -271,7 +353,129 @@ const API = {
         if (!u) return { me: null, event: eventInfo() };
         const inbox = u.state.inbox || [];
         if (inbox.length) { u.state.inbox = []; DIRTY.add(u.id); }
-        return { me: meOf(u), coins: u.state.coins, inbox, event: eventInfo() };
+        const tc = await store.tradeCount(u.id).catch(() => ({ in: 0 }));
+        return { me: meOf(u), coins: u.state.coins, inbox, trades: tc.in, event: eventInfo() };
+    },
+
+    /* --- profils --- */
+    'GET /api/profile': async (req, u) => {
+        if (limited('prof:' + ipOf(req), 60, 60e3)) return { status: 429, error: 'Doucement !' };
+        const p = qs(req).get('p'), t = p ? await userByPseudo(p) : u;
+        if (!t) return { status: 404, error: 'Joueur introuvable.' };
+        return { profile: profileOf(t, u) };
+    },
+    'POST /api/profile': async (req, u, b) => {
+        if (!u) return { status: 401, error: 'Crée un compte pour avoir un profil.' };
+        if (limited('prof-set:' + u.id, 40, 60e3)) return { status: 429, error: 'Doucement !' };
+        const S = u.state, pr = S.profile = Object.assign({ avatar: null, showcase: [], title: null }, S.profile);
+        if ('avatar' in b) {
+            const k = b.avatar == null ? null : String(b.avatar);
+            if (k && !S.cards[k]) return { error: 'Tu n’as pas cette carte.' };
+            pr.avatar = k;
+        }
+        if ('showcase' in b) {
+            const l = keyList(b.showcase);
+            if (l.length > 5) return { error: '5 cartes maximum dans la vitrine.' };
+            if (!l.every(k => S.cards[k])) return { error: 'Tu n’as pas toutes ces cartes.' };
+            pr.showcase = l;
+        }
+        if ('title' in b) {
+            const t = b.title == null ? null : String(b.title);
+            if (t && !G.profileStats(S).titles.includes(t)) return { error: 'Ce titre n’est pas encore débloqué.' };
+            pr.title = t;
+        }
+        DIRTY.add(u.id);
+        return { profile: profileOf(u, u) };
+    },
+    // les joueurs, plus grosses collections d'abord
+    'GET /api/players': async (req, u) => {
+        if (limited('players:' + ipOf(req), 40, 60e3)) return { status: 429, error: 'Doucement !' };
+        const q = String(qs(req).get('q') || '').trim().slice(0, 40);
+        const list = await store.players(q, 40);
+        for (const p of list) { const m = USERS.get(p.id); if (m) { p.cards = Object.keys(m.state.cards).length; p.profile = m.state.profile || {}; } }
+        list.sort((a, b) => b.cards - a.cards || a.pseudo.localeCompare(b.pseudo));
+        return { players: list.map(p => ({ pseudo: p.pseudo, cards: p.cards, title: titleLabel(p.profile.title), avatar: typeof p.profile.avatar === 'string' ? p.profile.avatar : null, me: !!u && p.id === u.id })) };
+    },
+    // la collection d'un joueur, par pages de 60 (pour choisir les cartes d'un échange)
+    'GET /api/collection': async (req, u) => {
+        if (limited('coll:' + ipOf(req), 60, 60e3)) return { status: 429, error: 'Doucement !' };
+        const p = qs(req), t = await userByPseudo(p.get('p'));
+        if (!t) return { status: 404, error: 'Joueur introuvable.' };
+        const q = String(p.get('q') || '').trim().toLowerCase().slice(0, 60), dup = p.get('dup') === '1';
+        const off = Math.max(0, Math.min(1e6, Math.floor(+p.get('offset')) || 0));
+        const C = t.state.cards;
+        let ks = Object.keys(C);
+        if (dup) ks = ks.filter(k => C[k].n > 1);
+        if (q) ks = ks.filter(k => { const c = G.cardOfKey(k); return c && (c.name + ' ' + (c.anime || '')).toLowerCase().includes(q); });
+        const rk = new Map(ks.map(k => [k, rankOfKey(k)]));
+        ks = ks.filter(k => rk.get(k) >= 0).sort((a, b) => rk.get(b) - rk.get(a) || (C[b].shiny ? 1 : 0) - (C[a].shiny ? 1 : 0) || (a < b ? -1 : 1));
+        return { pseudo: t.pseudo, total: ks.length, cards: ks.slice(off, off + 60).map(k => ownedOf(t.state, k)) };
+    },
+
+    /* --- échanges entre joueurs --- */
+    'POST /api/trade/offer': async (req, u, b) => {
+        if (!u) return { status: 401, error: 'Crée un compte pour échanger.' };
+        if (limited('trade:' + u.id, 30, 3600e3)) return { status: 429, error: 'Trop de propositions, réessaie plus tard.' };
+        const give = keyList(b.give), take = keyList(b.take);
+        if (give.length > 5 || take.length > 5) return { error: '5 cartes maximum de chaque côté.' };
+        if (!give.length && !take.length) return { error: 'Choisis au moins une carte.' };
+        const other = await userByPseudo(b.to);
+        if (!other) return { error: 'Joueur introuvable.' };
+        if (other.id === u.id) return { error: 'Tu ne peux pas échanger avec toi-même.' };
+        if (!give.every(k => G.validKey(k) && u.state.cards[k])) return { error: 'Tu n’as pas toutes ces cartes.' };
+        if (!take.every(k => G.validKey(k) && other.state.cards[k])) return { error: `${other.pseudo} n’a plus toutes ces cartes.` };
+        const [c1, c2] = await Promise.all([store.tradeCount(u.id), store.tradeCount(other.id)]);
+        if (c1.out >= 10) return { error: 'Tu as déjà 10 propositions en attente : annules-en une.' };
+        if (c2.in >= 30) return { error: `${other.pseudo} a trop de propositions en attente.` };
+        const id = await store.tradeAdd({ from: u.id, to: other.id, give, take });
+        return { ok: true, id };
+    },
+    'GET /api/trades': async (req, u) => {
+        if (!u) return { status: 401, error: 'Connecte-toi.' };
+        const out = [];
+        for (const t of await store.tradesOf(u.id)) {
+            let ok = true;
+            if (t.status === 'pending') {
+                const a = await userById(t.from), b = await userById(t.to);
+                ok = !!a && !!b && t.give.every(k => a.state.cards[k]) && t.take.every(k => b.state.cards[k]);
+            }
+            out.push({ id: t.id, from: t.fromPseudo, to: t.toPseudo, mine: t.from === u.id, give: t.give, take: t.take, status: t.status, at: t.at, upd: t.upd, ok });
+        }
+        return { trades: out };
+    },
+    'POST /api/trade/answer': async (req, u, b) => {
+        if (!u) return { status: 401, error: 'Connecte-toi.' };
+        if (limited('trade-ans:' + u.id, 30, 60e3)) return { status: 429, error: 'Doucement !' };
+        const id = tradeId(b.id), t = id && await store.tradeGet(id);
+        if (!t || t.to !== u.id) return { error: 'Échange introuvable.' };
+        if (t.status !== 'pending') return { error: 'Cet échange n’est plus en attente.' };
+        const from = await userById(t.from);
+        if (!b.accept) {
+            if (!await store.tradeSet(id, 'pending', 'refused')) return { error: 'Cet échange n’est plus en attente.' };
+            if (from) notify(from, { trade: 'refused', by: u.pseudo, id });
+            return { ok: true, result: 'refused' };
+        }
+        const can = () => !!from && t.give.every(k => from.state.cards[k]) && t.take.every(k => u.state.cards[k]);
+        const fail = async st => { await store.tradeSet(id, st, 'failed'); if (from) notify(from, { trade: 'failed', by: u.pseudo, id }); return { error: 'Une des cartes n’est plus disponible : échange annulé.' }; };
+        if (!can()) return fail('pending');
+        if (!await store.tradeSet(id, 'pending', 'accepted')) return { error: 'Cet échange n’est plus en attente.' };
+        if (!can()) return fail('accepted'); // une carte a bougé pendant l'écriture en base
+        // à partir d'ici, plus d'attente : l'échange se fait d'un bloc
+        for (const k of t.give) G.transferCard(from.state, u.state, k);
+        for (const k of t.take) G.transferCard(u.state, from.state, k);
+        from.state.trades = (from.state.trades || 0) + 1; u.state.trades = (u.state.trades || 0) + 1;
+        const mine = G.checkBinders(u.state, animesOf(t.give)), theirs = G.checkBinders(from.state, animesOf(t.take));
+        notify(from, { trade: 'accepted', by: u.pseudo, id, rewards: theirs });
+        DIRTY.add(u.id); DIRTY.add(from.id);
+        console.log(`[échange] ${from.pseudo} → ${u.pseudo} : ${t.give.length} contre ${t.take.length}`);
+        return { ok: true, result: 'accepted', rewards: mine, patch: patchOf(u.state, [...t.give, ...t.take]) };
+    },
+    'POST /api/trade/cancel': async (req, u, b) => {
+        if (!u) return { status: 401, error: 'Connecte-toi.' };
+        const id = tradeId(b.id), t = id && await store.tradeGet(id);
+        if (!t || t.from !== u.id) return { error: 'Échange introuvable.' };
+        if (!await store.tradeSet(id, 'pending', 'cancelled')) return { error: 'Cet échange n’est plus en attente.' };
+        return { ok: true };
     },
 
     'GET /api/admin/players': async (req, u) => {

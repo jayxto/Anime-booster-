@@ -86,10 +86,39 @@ const PACKS = [
     { id: 'waifu', n: 5, price: 800, emo: '💖', name: 'Booster Waifu', desc: '5 cartes, que des waifus ! 1 épique min.', type: 'waifu', art: 11 }
 ];
 const ANIME_PACK_PRICE = 400;
+// boosters à thème : n'apparaissent que si les données contiennent le thème (tools/build-cards.js)
+const THEME_PACKS = [
+    ['mechants', 700, '😈', 'Booster Méchants', '5 méchants célèbres (Madara, Aizen, Muzan…), 1 carte Ombre garantie.'],
+    ['shonen', 500, '🔥', 'Booster Shōnen', '5 cartes de shōnen de baston, 1 épique min.'],
+    ['isekai', 500, '🌀', 'Booster Isekai', '5 cartes d’animés isekai, 1 épique min.'],
+    ['romance', 500, '💞', 'Booster Romance', '5 cartes d’animés romantiques, 1 épique min.'],
+    ['mecha', 500, '🤖', 'Booster Mecha', '5 cartes d’animés de robots géants, 1 épique min.'],
+    ['sport', 500, '⚽', 'Booster Sport', '5 cartes d’animés de sport, 1 épique min.'],
+    ['horreur', 500, '👻', 'Booster Horreur', '5 cartes d’animés d’horreur, 1 épique min.'],
+    ['magical', 500, '🪄', 'Booster Magical Girl', '5 cartes de magical girls, 1 épique min.'],
+    ['retro', 500, '📼', 'Booster Rétro', '5 cartes des animés d’avant 2000, 1 épique min.']
+].map(([theme, price, emo, name, desc], i) => ({ id: 'theme:' + theme, type: 'theme', theme, n: 5, price, emo, name, desc, art: 12 + i }));
+// classeurs : récompense à 25 %, 50 %, 75 % et 100 % des persos d'un animé (pièces par perso du classeur)
+const MILESTONES = [25, 50, 75, 100], MILE_COINS = [10, 20, 40, 100];
+// titres de profil, débloqués par la collection
+const TITLES = [
+    ['debutant', 'Débutant', 'Pour tout le monde', s => true],
+    ['collectionneur', 'Collectionneur', '500 cartes différentes', s => s.cards >= 500],
+    ['archiviste', 'Archiviste', '5 000 cartes différentes', s => s.cards >= 5000],
+    ['encyclopedie', 'Encyclopédie vivante', '20 000 cartes différentes', s => s.cards >= 20000],
+    ['chasseur', 'Chasseur de raretés', '10 raretés spéciales', s => s.specials >= 10],
+    ['waifus', 'Maître des Waifus', '100 waifus', s => s.waifus >= 100],
+    ['completiste', 'Complétiste', '1 classeur complet 🏆', s => s.done >= 1],
+    ['bibliothecaire', 'Bibliothécaire', '10 classeurs complets', s => s.done >= 10],
+    ['marchand', 'Marchand', '5 échanges réussis', s => s.trades >= 5],
+    ['ouvreur', 'Ouvreur fou', '1 000 packs ouverts', s => s.opened >= 1000],
+    ['beni', 'Béni des dieux', 'Un God Pack', s => s.god >= 1],
+    ['mythe', 'Légende du jeu', 'Une carte Oméga ou plus rare', s => s.bestRank >= 9]
+].map(([id, label, hint, test]) => ({ id, label, hint, test }));
 const MAX_COINS = 1e15; // reste un entier exact en JavaScript
 const MAX_LUCK = 1000;
 
-const fresh = () => ({ coins: 2000, cards: {}, opened: 0, pulled: 0, best: {}, lastFree: 0, lastDaily: '', streak: 0, god: 0, infinite: 0 });
+const fresh = () => ({ coins: 2000, cards: {}, opened: 0, pulled: 0, best: {}, lastFree: 0, lastDaily: '', streak: 0, god: 0, infinite: 0, done: {}, trades: 0, profile: { avatar: null, showcase: [], title: null } });
 const rnd = n => Math.floor(Math.random() * n);
 const pick = a => a[rnd(a.length)];
 const dayKey = t => new Date(t).toDateString();
@@ -124,6 +153,20 @@ function create(D) {
     function pickWaifuAnime() { let r = Math.random() * WWSUM; for (let i = 0; i < WU.length; i++) { r -= WW[i]; if (r <= 0) return WU[i]; } return WU[WU.length - 1]; }
     const isWaifu = (u, n) => { const a = D.animes[u], i = a && a.idx.get(n); return i != null && !!a.cards[i][3]; };
     const WAIFU_COUNT = WU.reduce((s, u) => s + D.animes[u].wf.length, 0);
+    // thèmes : une liste d'animés (tirage pondéré par la popularité) ou une liste de persos précis (Méchants)
+    const THEME = {};
+    for (const [t, list] of Object.entries(D.themes || {})) {
+        if (!Array.isArray(list) || !list.length) continue;
+        if (Array.isArray(list[0])) {
+            const cards = list.map(([u, n]) => [u, D.animes[u] && D.animes[u].idx.get(n)]).filter(([u, i]) => i != null);
+            if (cards.length >= 10) THEME[t] = { cards, w: cards.map(([u]) => Math.sqrt(D.animes[u].pop || med)) };
+        } else {
+            const us = list.filter(u => D.animes[u] && D.animes[u].cards.length);
+            if (us.length >= 3) THEME[t] = { us, w: us.map(u => Math.sqrt(D.animes[u].pop || med)) };
+        }
+        if (THEME[t]) THEME[t].sum = THEME[t].w.reduce((a, b) => a + b, 0);
+    }
+    const pickW = T => { let r = Math.random() * T.sum; for (let i = 0; i < T.w.length; i++) { r -= T.w[i]; if (r <= 0) return i; } return T.w.length - 1; };
     const imgUrl = p => !p ? null : /^https?:/.test(p) ? p : D.imgPrefix + p;
     const imgOf = (u, n) => { const a = D.animes[u]; const i = a && a.idx.get(n); return i == null ? null : imgUrl(a.cards[i][2]); };
     function seasonActive(id, now = Date.now()) {
@@ -207,8 +250,8 @@ function create(D) {
     const packLuck = (p, boost) => (p.type === 'chance' ? 10 : 1) * Math.max(1, Math.min(MAX_LUCK, boost || 1));
     function openPack(S, p, now, boost) {
         const luck = packLuck(p, boost), n = p.n, waifu = p.type === 'waifu' && WU.length > 0;
-        // God Pack : que des cartes très rares (que des waifus dans le booster Waifu)
-        if (n >= 3 && Math.random() < Math.min(0.2, GOD_PACK_RATE * luck)) {
+        // God Pack : que des cartes très rares (que des waifus dans le booster Waifu ; pas dans les boosters à thème)
+        if (n >= 3 && p.type !== 'theme' && Math.random() < Math.min(0.2, GOD_PACK_RATE * luck)) {
             const out = [];
             for (let i = 0; i < n; i++) {
                 const r = Math.random(), rar = r < 0.02 ? 'cosmique' : r < 0.06 ? 'divine' : r < 0.14 ? 'eveillee' : r < 0.3 ? 'secrete' : r < 0.6 ? 'mythique' : 'legendaire';
@@ -220,6 +263,7 @@ function create(D) {
         const mult = (p.type === 'mythique' ? 4 : p.type === 'epique' ? 2 : 1) * luck;
         const minRank = p.type === 'mythique' ? 3 : p.type === 'epique' || p.anime || waifu ? 2 : n >= 10 ? 1 : 0;
         if (waifu) return openWaifu(S, p, luck, mult, minRank, now);
+        if (p.type === 'theme' && THEME[p.theme]) return openTheme(S, p, luck, mult, now);
         const act = Object.keys(D.seasons).filter(id => seasonActive(id, now) && seasonChars(id).length);
         const out = [];
         for (let i = 0; i < n; i++) {
@@ -290,6 +334,104 @@ function create(D) {
         }
         return out;
     }
+    // booster à thème : les persos viennent des animés du thème (ou de la liste de persos, pour les Méchants)
+    function openTheme(S, p, luck, mult, now) {
+        const T = THEME[p.theme], out = [];
+        for (let i = 0; i < p.n; i++) {
+            const last = i === p.n - 1;
+            let u, idx;
+            if (T.cards) [u, idx] = T.cards[pickW(T)];
+            else { u = T.us[pickW(T)]; const L = D.animes[u].cards.length; idx = Math.min(L - 1, Math.floor(Math.pow(Math.random(), 1.6 / Math.sqrt(luck)) * L)); }
+            const a = D.animes[u], name = a.cards[idx][0];
+            let special = null;
+            for (const t of TIERS_RAREST_FIRST) {
+                if (Math.random() >= tierRate(t, now) * mult * (T.cards ? 2 : 1)) continue;
+                const l = T.cards ? specialList(u, t.id).filter(x => x === name) : specialList(u, t.id);
+                if (!l.length) continue;
+                special = specialCard(u, T.cards ? name : pick(l), t.id, Math.random() < Math.min(0.9, luck / 10));
+                break;
+            }
+            // Méchants : la dernière carte sort dans sa version Ombre si le pack n'a pas encore de rareté spéciale
+            if (!special && T.cards && last && !out.some(c => TIER_BY_ID[c.rarity]) && specialList(u, 'ombre').includes(name)) special = specialCard(u, name, 'ombre', Math.random() < Math.min(0.9, SHINY_RATE * luck));
+            if (special) { out.push(award(S, special, luck)); continue; }
+            if (!T.cards && last && !out.some(c => (RANK[c.rarity] || 0) >= 2)) {
+                const ok = []; a.cards.forEach((c, j) => { if (RANK[c[1]] >= 2) ok.push(j); });
+                if (ok.length) idx = pick(ok);
+            }
+            out.push(award(S, baseCard(u, idx, Math.random() < Math.min(0.9, SHINY_RATE * luck)), luck));
+        }
+        return out;
+    }
+    // l'image du booster : le perso le plus connu de l'animé le plus populaire du thème
+    const themeArt = t => {
+        const T = THEME[t]; if (!T) return null;
+        let best = 0; T.w.forEach((w, i) => { if (w > T.w[best] || (T.cards && w === T.w[best] && T.cards[i][1] < T.cards[best][1])) best = i; });
+        if (t === 'mechants') { const i = T.cards.findIndex(([u, j]) => /^Madara U/.test(D.animes[u].cards[j][0])); if (i >= 0) best = i; }
+        const [u, i] = T.cards ? T.cards[best] : [T.us[best], 0];
+        return imgUrl(D.animes[u].cards[i][2]);
+    };
+    const themeSize = t => { const T = THEME[t]; return !T ? 0 : T.cards ? T.cards.length : T.us.length; };
+
+    /* ---------- classeurs : récompenses à 25 / 50 / 75 / 100 % ---------- */
+    function binderProgress(S, u) { const a = D.animes[u]; if (!a) return { own: 0, tot: 0 }; let own = 0; for (const c of a.cards) if (S.cards[u + '|' + c[0]]) own++; return { own, tot: a.cards.length }; }
+    const mileCoins = (tot, lvl) => Math.max(100, Math.round(tot * MILE_COINS[lvl]));
+    function checkBinders(S, us) {
+        const out = [];
+        S.done = S.done || {};
+        for (const u of new Set(us)) {
+            if (!D.animes[u]) continue;
+            const { own, tot } = binderProgress(S, u), pct = tot ? own / tot * 100 : 0;
+            let lvl = S.done[u] || 0;
+            while (lvl < 4 && pct >= MILESTONES[lvl]) {
+                const coins = mileCoins(tot, lvl);
+                S.coins = Math.min(MAX_COINS, S.coins + coins);
+                out.push({ u, name: D.animes[u].name, pct: MILESTONES[lvl], coins });
+                lvl++;
+            }
+            if (lvl) S.done[u] = lvl;
+        }
+        return out;
+    }
+    // collection importée (compte créé avec les cartes d'invité) : paliers notés sans donner de pièces
+    function syncBinders(S) {
+        S.done = {};
+        const us = new Set(Object.keys(S.cards).map(k => k.split('|')[0]).filter(u => D.animes[u]));
+        for (const u of us) { const { own, tot } = binderProgress(S, u), pct = tot ? own / tot * 100 : 0; let lvl = 0; while (lvl < 4 && pct >= MILESTONES[lvl]) lvl++; if (lvl) S.done[u] = lvl; }
+    }
+
+    /* ---------- profil : chiffres de la collection et titres débloqués ---------- */
+    function profileStats(S) {
+        let cards = 0, specials = 0, waifus = 0, bestRank = -1, bestKey = null;
+        for (const k of Object.keys(S.cards)) {
+            cards++;
+            const parts = k.split('|');
+            let r = 0;
+            if (k.startsWith('duo|')) r = RANK.duo; else if (k.startsWith('saison:')) r = RANK.saison;
+            else if (parts[2]) { r = RANK[parts[2]] || 0; specials++; }
+            else { const a = D.animes[parts[0]], i = a && a.idx.get(parts[1]); if (i != null) { r = RANK[a.cards[i][1]] || 0; if (a.cards[i][3]) waifus++; } }
+            if (r > bestRank) { bestRank = r; bestKey = k; }
+        }
+        const done = Object.values(S.done || {}).filter(l => l >= 4).length;
+        const st = { cards, specials, waifus, bestRank, bestKey, done, trades: S.trades || 0, opened: S.opened || 0, god: S.god || 0 };
+        st.titles = TITLES.filter(t => t.test(st)).map(t => t.id);
+        return st;
+    }
+    // échange : une copie passe de A à B (la brillance et la finition ne partent qu'avec la dernière copie ou si toutes sont brillantes)
+    function transferCard(A, B, k) {
+        const o = A.cards[k];
+        if (!o) return null;
+        const keep = Math.min(o.shiny || 0, o.n - 1), shiny = (o.shiny || 0) - keep;
+        let fin = null;
+        if (o.n <= 1) {
+            fin = o.fin || null; delete A.cards[k];
+            const pr = A.profile;
+            if (pr) { if (pr.avatar === k) pr.avatar = null; if (Array.isArray(pr.showcase)) pr.showcase = pr.showcase.filter(x => x !== k); }
+        } else { o.n--; o.shiny = keep; }
+        const t = B.cards[k];
+        if (t) { t.n++; t.shiny = (t.shiny || 0) + shiny; if (fin && (!t.fin || FIN_IDX[fin] < FIN_IDX[t.fin])) t.fin = fin; }
+        else B.cards[k] = { n: 1, shiny, fin };
+        return { shiny, fin };
+    }
     const waifuArt = () => { for (const u of BY_POP) { const a = D.animes[u]; if (a.wf.length) return imgUrl(a.cards[a.wf[0]][2]); } return null; };
 
     /* ---------- chances d'obtention (calculées avec les mêmes règles que le tirage) ---------- */
@@ -346,6 +488,7 @@ function create(D) {
         if (id === 'infinite') return INFINITE;
         if (id === 'free') return FREE_PACK;
         if (String(id).startsWith('anime:')) return animePack(String(id).slice(6));
+        if (String(id).startsWith('theme:')) { const p = THEME_PACKS.find(x => x.id === id); return p && THEME[p.theme] ? p : null; }
         const p = PACKS.find(x => x.id === id);
         if (p && p.type === 'waifu' && !WU.length) return null;
         return p && (p.type !== 'season' || seasonActive(p.season, now)) ? p : null;
@@ -360,7 +503,9 @@ function create(D) {
         if (p.free) S.lastFree = now;
         S.opened++; if (p.infinite) S.infinite++;
         const cards = openPack(S, p, now, boost);
-        return { ok: true, pack: p, cards, god: !!cards.god };
+        // une carte d'un animé peut faire passer un palier de son classeur
+        const rewards = checkBinders(S, cards.filter(c => c.u && !c.season && c.rarity !== 'duo').map(c => c.u));
+        return { ok: true, pack: p, cards, god: !!cards.god, rewards };
     }
     const dailyAmount = S => 500 + Math.min(S.streak || 0, 10) * 100;
     function claimDaily(S, now = Date.now()) {
@@ -379,8 +524,8 @@ function create(D) {
         return { ok: true, n, total };
     }
 
-    return { D, U, BY_POP, PU, WU, WAIFU_COUNT, isWaifu, waifuArt, imgUrl, imgOf, seasonActive, seasonChars, specialList, baseCard, specialCard, seasonCard, duoOf, cardOfKey, animePack, packFor, freeLeft, buy, dailyAmount, claimDaily, sellDupes, validKey, dayKey, slotOdds, baseShare, chanceOf, isNight };
+    return { D, U, BY_POP, PU, WU, WAIFU_COUNT, isWaifu, waifuArt, THEME, themeArt, themeSize, binderProgress, checkBinders, syncBinders, mileCoins, profileStats, transferCard, imgUrl, imgOf, seasonActive, seasonChars, specialList, baseCard, specialCard, seasonCard, duoOf, cardOfKey, animePack, packFor, freeLeft, buy, dailyAmount, claimDaily, sellDupes, validKey, dayKey, slotOdds, baseShare, chanceOf, isNight };
 }
 
-return { BASE, RAR, RAR_LABEL, RAR_COLOR, RANK, SPECIAL_TIERS, TIER_BY_ID, SEASON_COLOR, FINISHES, FIN_IDX, GOD_PACK_RATE, DUO_RATE, SEASON_RATE, SHINY_RATE, FREE_EVERY, SEASON_EMO, INFINITE, FREE_PACK, PACKS, ANIME_PACK_PRICE, MAX_COINS, MAX_LUCK, fresh, dayKey, isNight, create };
+return { BASE, RAR, RAR_LABEL, RAR_COLOR, RANK, SPECIAL_TIERS, TIER_BY_ID, SEASON_COLOR, FINISHES, FIN_IDX, GOD_PACK_RATE, DUO_RATE, SEASON_RATE, SHINY_RATE, FREE_EVERY, SEASON_EMO, INFINITE, FREE_PACK, PACKS, THEME_PACKS, ANIME_PACK_PRICE, MAX_COINS, MAX_LUCK, MILESTONES, TITLES, fresh, dayKey, isNight, create };
 });

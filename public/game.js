@@ -3,7 +3,8 @@
 (() => {
 'use strict';
 
-const { RAR, RAR_LABEL, RAR_COLOR, RANK, SPECIAL_TIERS, TIER_BY_ID, SEASON_COLOR, FINISHES, GOD_PACK_RATE, SHINY_RATE, SEASON_EMO, INFINITE, FREE_PACK, PACKS, ANIME_PACK_PRICE } = Engine;
+const { RAR, RAR_LABEL, RAR_COLOR, RANK, SPECIAL_TIERS, TIER_BY_ID, SEASON_COLOR, FINISHES, GOD_PACK_RATE, SHINY_RATE, SEASON_EMO, INFINITE, FREE_PACK, PACKS, THEME_PACKS, ANIME_PACK_PRICE, MILESTONES, TITLES } = Engine;
+const MEDAL = ['🥉', '🥈', '🥇', '🏆'];
 const FIN_LABEL = Object.fromEntries(FINISHES.map(f => [f.id, f.label]));
 let D = null, G = null, S = null, ME = null, SERVER = false, booted = false, lastPack = null, U = [], BY_POP = [];
 let EVENT = { luck: 1, until: null }, eventSeen = null;
@@ -21,6 +22,17 @@ const luckNow = () => EVENT.luck > 1 && (!EVENT.until || Date.now() < EVENT.unti
 /* ---------- sauvegarde invité (navigateur) ---------- */
 const SAVE_KEY = 'anime-boosters-v2';
 function guestState() { try { return Object.assign(Engine.fresh(), JSON.parse(localStorage.getItem(SAVE_KEY)) || {}); } catch (_) { return Engine.fresh(); } }
+// partie invité d'avant les récompenses de classeur : les paliers déjà atteints sont payés d'un coup
+function loadGuest() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (_) {}
+    S = Object.assign(Engine.fresh(), raw || {});
+    if (!raw || raw.done) return;
+    const rw = G.checkBinders(S, Object.keys(S.cards).map(k => k.split('|')[0])), total = rw.reduce((t, r) => t + r.coins, 0);
+    writeGuest();
+    if (total) setTimeout(() => binderGift(total, rw.length), 900);
+}
+function binderGift(total, n) { sfx('coins'); glowPulse('.wallet'); toast(`🏆 Récompenses de classeurs : +${fmt(total)} 🪙 pour ${n} palier${n > 1 ? 's' : ''} déjà atteint${n > 1 ? 's' : ''} !`, 6000); }
 let saveT = 0;
 const writeGuest = () => { if (!ME) try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (_) {} };
 function save() { renderCoins(); if (!ME) { clearTimeout(saveT); saveT = setTimeout(writeGuest, 200); } }
@@ -42,15 +54,17 @@ async function api(method, url, body) {
 function applyPatch(p) {
     if (!p) return;
     for (const k of Object.keys(p)) if (k !== 'entries') S[k] = p[k];
-    for (const [k, v] of Object.entries(p.entries || {})) S.cards[k] = v;
+    for (const [k, v] of Object.entries(p.entries || {})) { if (v) S.cards[k] = v; else delete S.cards[k]; } // null : carte partie dans un échange
 }
+// paliers de classeur gagnés côté serveur : on les note aussi ici
+function noteRewards(rw) { S.done = S.done || {}; for (const r of rw || []) { const lvl = MILESTONES.indexOf(r.pct) + 1; if (lvl > (S.done[r.u] || 0)) S.done[r.u] = lvl; } }
 // les actions passent par le serveur pour un compte, par le moteur local pour un invité
 async function doBuy(id) {
     if (!ME) { const r = G.buy(S, id, Date.now(), luckNow()); if (r.ok) save(); return r; }
     const j = await api('POST', '/api/open', { id });
     if (j.error) return { ok: false, error: j.error, retry: j.status === 0 || j.status === 429 || j.status >= 500 };
-    applyPatch(j.patch); renderCoins();
-    return { ok: true, cards: j.cards, god: j.god };
+    applyPatch(j.patch); noteRewards(j.rewards); renderCoins();
+    return { ok: true, cards: j.cards, god: j.god, rewards: j.rewards || [] };
 }
 async function doDaily() {
     if (!ME) { const r = G.claimDaily(S); if (r.ok) save(); return r; }
@@ -196,7 +210,7 @@ async function startOpen(p) {
     $('#op-count').textContent = p.infinite ? `♾️ Pack infini n°${fmt((S.infinite || 0) + 1)}` : p.name;
     $('#op-luck').textContent = luckNow() > 1 ? `🍀 Chance x${luckNow()}` : '';
     opened = { tok, p, cards: null, god: false, summed: false };
-    SM.open({ name: p.name, art: packArt(p), emo: p.emo, n: p.n, auto, type: p.type || (p.anime ? 'anime' : '') });
+    SM.open({ name: p.name, art: packArt(p), emo: p.emo, n: p.n, auto, type: p.theme ? 'th th-' + p.theme : p.type || (p.anime ? 'anime' : '') });
     setBar();
     // le pack est acheté tout de suite ; pendant ce temps le joueur le pose dans le cercle
     const buying = buyPack(p).then(r => { busy = false; if (r.ok && tok === openTok) lastPack = p; return r; });
@@ -207,7 +221,7 @@ async function startOpen(p) {
         if (!r.ok) { const wasAuto = auto; closeOpen(); renderFree(); return toast(wasAuto ? `Mode auto arrêté : ${r.error}` : r.error); }
         lastPack = p;
         if (p.infinite) $('#op-count').textContent = `♾️ Pack infini n°${fmt(S.infinite)}`;
-        opened.cards = r.cards; opened.god = r.god;
+        opened.cards = r.cards; opened.god = r.god; opened.rewards = r.rewards || [];
         setBar();
         await SM.ignite(r.cards, r.god);
         if (tok !== openTok) return;
@@ -230,8 +244,17 @@ function showSummary() {
     const news = cards.filter(c => c.isNew).length, coins = cards.reduce((t, c) => t + (c.coins || 0), 0);
     const el = $('#op-sum');
     el.innerHTML = `<span>Meilleure carte : <b style="color:${colorOf(best)}">${esc(labelOf(best))}</b> <i class="sum-gems" style="color:${colorOf(best)}">${gemsOf(best)}</i></span>`
-        + (news ? `<span>✨ ${news} nouvelle${news > 1 ? 's' : ''}</span>` : '<span>Aucune nouvelle carte</span>') + (coins ? `<span>+${fmt(coins)} 🪙 de doublons</span>` : '');
+        + (news ? `<span>✨ ${news} nouvelle${news > 1 ? 's' : ''}</span>` : '<span>Aucune nouvelle carte</span>') + (coins ? `<span>+${fmt(coins)} 🪙 de doublons</span>` : '')
+        + rewardsHtml(opened.rewards);
     el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+    if (opened.rewards && opened.rewards.length) { sfx('coins'); glowPulse('.wallet'); }
+}
+// paliers de classeur passés grâce au pack
+function rewardsHtml(rw) {
+    if (!rw || !rw.length) return '';
+    const l = rw.slice(0, 3).map(r => `<span class="sum-rw m${MILESTONES.indexOf(r.pct) + 1}">${MEDAL[MILESTONES.indexOf(r.pct)]} ${esc(r.name)} ${r.pct} % : +${fmt(r.coins)} 🪙</span>`).join('');
+    const more = rw.slice(3), extra = more.reduce((t, r) => t + r.coins, 0);
+    return l + (more.length ? `<span class="sum-rw">🏆 +${more.length} paliers : +${fmt(extra)} 🪙</span>` : '');
 }
 // Espace : poser le pack, puis tout révéler, puis pack suivant
 function next() {
@@ -266,6 +289,9 @@ document.addEventListener('keydown', e => {
     if (e.target.matches && e.target.matches('input, select, textarea')) return;
     if ($('#zoom').classList.contains('on')) { if (e.key === 'Escape') $('#zoom').classList.remove('on'); return; }
     if ($('#auth').classList.contains('on')) { if (e.key === 'Escape') closeAuth(); return; }
+    if ($('#pick').classList.contains('on')) { if (e.key === 'Escape') closePicker(); return; }
+    if ($('#trade').classList.contains('on')) { if (e.key === 'Escape') closeTrade(); return; }
+    if ($('#prof').classList.contains('on')) { if (e.key === 'Escape') closeProfile(); return; }
     if ($('#book').classList.contains('on')) {
         if (e.key === 'ArrowRight') flip && flip.flipNext();
         if (e.key === 'ArrowLeft') flip && flip.flipPrev();
@@ -282,13 +308,14 @@ document.addEventListener('keydown', e => {
 /* ---------- boutique ---------- */
 function packArt(p) {
     if (p.type === 'waifu') return G.waifuArt();
+    if (p.type === 'theme') return G.themeArt(p.theme);
     const u = p.anime || BY_POP[(p.art || 0) % BY_POP.length];
     const a = D.animes[u];
     return a ? imgUrl(a.cards[0][2]) : null;
 }
 function packHtml(p, off, tag) {
     const im = packArt(p);
-    return `<div class="pack ${off ? 'off' : ''}" data-id="${esc(p.id)}">${tag ? `<span class="pk-tag">${tag}</span>` : ''}
+    return `<div class="pack ${off ? 'off' : ''}${p.theme ? ' th th-' + esc(p.theme) : ''}" data-id="${esc(p.id)}">${tag ? `<span class="pk-tag">${tag}</span>` : ''}
       ${im ? `<img class="pk-art" src="${esc(im)}" alt="" loading="lazy">` : ''}
       <div class="pk-emo">${p.emo}</div><div class="pk-n">${esc(p.name)}</div><div class="pk-d">${esc(p.desc)}</div><div class="pk-p">${p.price ? fmt(p.price) + ' 🪙' : 'Gratuit'}</div></div>`;
 }
@@ -296,6 +323,10 @@ function renderShop() {
     const list = PACKS.filter(p => G.packFor(p.id));
     $('#packs').innerHTML = list.map(p => packHtml(p, S.coins < p.price, p.type === 'season' ? 'ÉVÉNEMENT' : p.type === 'waifu' ? 'NOUVEAU' : '')).join('');
     $('#packs').querySelectorAll('.pack').forEach(el => el.onclick = () => startOpen(PACKS.find(x => x.id === el.dataset.id)));
+    const th = THEME_PACKS.filter(p => G.packFor(p.id));
+    $('#theme-sec').hidden = !th.length;
+    $('#theme-packs').innerHTML = th.map(p => { const n = G.themeSize(p.theme); return packHtml({ ...p, desc: `${p.desc} · ${fmt(n)} ${p.theme === 'mechants' ? 'méchants' : 'animés'}` }, S.coins < p.price, p.theme === 'mechants' ? 'NOUVEAU' : ''); }).join('');
+    $('#theme-packs').querySelectorAll('.pack').forEach(el => el.onclick = () => startOpen(THEME_PACKS.find(x => x.id === el.dataset.id)));
     renderAnimePacks();
     renderFree();
 }
@@ -382,8 +413,7 @@ function libStats(u) {
     }
     if (u === '_special') { const n = ownedSpecials().length; return { own: n, tot: n }; }
     if (SPECIAL_BINDERS[u]) { const l = SPECIAL_BINDERS[u].cards(); return { own: l.filter(c => S.cards[c.key]).length, tot: l.length }; }
-    const ks = binderKeys(u); let own = 0; for (const k of ks) if (S.cards[k]) own++;
-    return { own, tot: ks.length };
+    return G.binderProgress(S, u); // les persos de l'animé (les paliers de récompense comptent ceux-là)
 }
 let libShown = 60;
 function renderLibrary() {
@@ -395,14 +425,18 @@ function renderLibrary() {
     const sp = q ? [] : Object.keys(SPECIAL_BINDERS).map(u => ({ u, ...libStats(u), special: true }));
     const all = [...sp, ...us];
     const totalAll = U.reduce((s, u) => s + D.animes[u].cards.length, 0);
-    $('#lib-prog').textContent = `${fmt(Object.keys(S.cards).length)} cartes différentes · ${fmt(totalAll)} persos dans ${fmt(U.length)} animés · ${fmt(G.WAIFU_COUNT)} waifus · ${SPECIAL_TIERS.length} raretés spéciales · ${FINISHES.length} finitions`;
+    const gold = Object.values(S.done || {}).filter(l => l >= 4).length;
+    $('#lib-prog').textContent = `${fmt(Object.keys(S.cards).length)} cartes différentes · ${fmt(totalAll)} persos dans ${fmt(U.length)} animés · ${fmt(G.WAIFU_COUNT)} waifus · ${SPECIAL_TIERS.length} raretés spéciales · ${FINISHES.length} finitions`
+        + ` · 🏆 ${fmt(gold)} classeur${gold > 1 ? 's' : ''} complet${gold > 1 ? 's' : ''} (récompenses à 25, 50, 75 et 100 % des persos)`;
     $('#library').innerHTML = all.slice(0, libShown).map(b => {
         const a = D.animes[b.u], sb = SPECIAL_BINDERS[b.u], name = sb ? sb.name : a.name;
         const cover = sb ? null : (a.cover || imgUrl(a.cards[0][2]));
         const col = !sb && a.color ? `--bc:linear-gradient(160deg, ${a.color}, #1a1230)` : '';
         const art = cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : `<div class="col">${specialArt(b.u, sb && sb.main ? 12 : 4).map(s => `<img src="${esc(s)}" alt="" loading="lazy">`).join('')}</div>`;
         const count = b.u === '_special' ? `${fmt(b.own)} cartes` : `${fmt(b.own)}/${fmt(b.tot)}`;
-        return `<div class="binder-cv ${sb ? 'special' : ''}${sb && sb.main ? ' main' : ''}" data-u="${esc(b.u)}" style="${col}">${art}
+        const lvl = sb ? 0 : (S.done || {})[b.u] || 0;
+        const medal = lvl ? `<span class="medal" title="${lvl >= 4 ? 'Classeur complet : tous les persos' : `Palier ${MILESTONES[lvl - 1]} % des persos atteint`}">${MEDAL[lvl - 1]}</span>` : '';
+        return `<div class="binder-cv ${sb ? 'special' : ''}${sb && sb.main ? ' main' : ''}${lvl >= 4 ? ' gold' : ''}" data-u="${esc(b.u)}" style="${col}">${art}${medal}
           <span class="bn">${count}</span><div class="bt">${esc(name)}${sb && sb.main ? '<br><small>Toutes les cartes du jeu</small>' : ''}</div><div class="bp"><i style="width:${b.tot ? Math.round(b.own / b.tot * 100) : 0}%"></i></div></div>`;
     }).join('');
     $('#lib-more').style.display = all.length > libShown ? '' : 'none';
@@ -455,7 +489,7 @@ function openBook(u, startPage) {
     const color = !sb && a.color ? a.color : main ? '#8a5a12' : sb ? '#1d6b8a' : '#7a2236';
     const cover = sb ? null : (a.cover || imgUrl(a.cards[0][2]));
     $('#book-title').textContent = name;
-    $('#book-prog').textContent = `${fmt(own)} / ${fmt(cards.length)}`;
+    $('#book-prog').textContent = `${fmt(own)} / ${fmt(cards.length)}` + (sb ? '' : nextMilestone(u));
     const inner = Math.max(2, Math.ceil(cards.length / PER)), total = inner + (inner % 2);
     const coverArt = cover ? `<img src="${esc(cover)}" alt="">` : `<div class="col">${specialArt(u).map(s => `<img src="${esc(s)}" alt="">`).join('')}</div>`;
     const pages = [`<div class="bpage bcover" data-density="hard"><div class="cv" style="--bc:${esc(color)}"><div class="plate">${coverArt}</div><h1>${esc(name)}</h1><p>${fmt(own)} / ${fmt(cards.length)} cartes</p></div></div>`];
@@ -497,6 +531,14 @@ function openBook(u, startPage) {
     flip.on('changeState', e => { if (e.data === 'flipping') sfx('page'); });
     // le classeur s'ouvre tout seul
     if (!startPage) setTimeout(() => { if (flip && bookU === u && flip.getCurrentPageIndex() === 0) flip.flipNext(); }, 650);
+}
+// le prochain palier de récompense d'un classeur d'animé
+function nextMilestone(u) {
+    const { own, tot } = G.binderProgress(S, u), lvl = (S.done || {})[u] || 0;
+    if (lvl >= 4) return ' · 🏆 Complet !';
+    const need = Math.ceil(tot * MILESTONES[lvl] / 100) - own;
+    return need > 0 ? ` · ${MEDAL[lvl]} ${MILESTONES[lvl]} % dans ${fmt(need)} perso${need > 1 ? 's' : ''} : +${fmt(G.mileCoins(tot, lvl))} 🪙`
+        : ` · ${MEDAL[lvl]} ${MILESTONES[lvl]} % atteint : ouvre un booster de cet animé pour toucher +${fmt(G.mileCoins(tot, lvl))} 🪙`;
 }
 function closeBook() { bookU = null; $('#book').classList.remove('on'); if (flip) { try { flip.destroy(); } catch (_) {} flip = null; } renderLibrary(); }
 let resizeT = 0;
@@ -599,6 +641,8 @@ function renderAccount() {
         : `<button class="acc-btn guest" id="acc-login">Invité · <b>Se connecter</b></button>`;
     if (ME) $('#acc-me').onclick = logout; else $('#acc-login').onclick = () => openAuth('login');
     $('#nav-admin').style.display = ME && ME.admin ? '' : 'none';
+    $('#nav-players').style.display = SERVER ? '' : 'none';
+    setTradeBadge();
 }
 function openAuth(mode) {
     authMode = mode;
@@ -627,14 +671,14 @@ $('#auth-form').onsubmit = async e => {
     if (j.error) { $('#auth-err').textContent = j.error; return; }
     writeGuest();
     ME = j.me; S = Object.assign(Engine.fresh(), j.state);
-    f.reset(); closeAuth(); renderAll();
+    f.reset(); closeAuth(); renderAll(); setTimeout(ping, 600);
     toast(authMode === 'register' ? `Bienvenue ${ME.pseudo} ! Ton compte est créé.` : `Re-bonjour ${ME.pseudo} !`);
     startPing();
 };
 async function logout() {
     if (!confirm('Se déconnecter ?')) return;
     await api('POST', '/api/logout');
-    ME = null; S = guestState(); startPing();
+    ME = null; TRADES_IN = 0; loadGuest(); startPing();
     renderAll(); toast('Déconnecté. Tu joues en invité.');
 }
 // pièces reçues de l'admin et événement chance (compte : toutes les 15 s, invité : toutes les 30 s)
@@ -646,15 +690,291 @@ async function ping() {
     const j = await api('GET', '/api/ping');
     if (j.error) return;
     if (j.event) setEvent(j.event);
-    if (!j.me) { ME = null; S = guestState(); startPing(); renderAll(); return toast('Session terminée, reconnecte-toi.'); }
+    if (!j.me) { ME = null; loadGuest(); startPing(); renderAll(); return toast('Session terminée, reconnecte-toi.'); }
     S.coins = j.coins; renderCoins();
     showGifts(j.inbox);
+    tradeNews(j.inbox, j.trades);
 }
 function showGifts(inbox) {
-    const total = (inbox || []).reduce((s, g) => s + (g.amount || 0), 0);
+    const bind = (inbox || []).filter(g => g.kind === 'binders');
+    if (bind.length) { binderGift(bind.reduce((t, g) => t + g.amount, 0), bind.reduce((t, g) => t + (g.n || 0), 0)); reloadState(); return; }
+    const total = (inbox || []).filter(g => !g.trade).reduce((s, g) => s + (g.amount || 0), 0);
     if (total > 0) { sfx('coins'); toast(`🎁 Tu as reçu ${fmt(total)} pièces de l'admin !`, 5000); glowPulse('.wallet'); renderShop(); }
     else if (total < 0) toast(`L'admin t'a retiré ${fmt(-total)} pièces.`, 5000);
 }
+
+/* ---------- joueurs : profils, vitrine et échanges ---------- */
+let TRADES_IN = 0, TRADES = [];
+const T_STATUS = { pending: '⏳ En attente', accepted: '✅ Échange fait', refused: '❌ Refusé', cancelled: '🚫 Annulé', failed: '⚠️ Annulé : une carte n’était plus là' };
+const titleOf = id => TITLES.find(t => t.id === id);
+const ago = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'à l’instant' : s < 3600 ? `il y a ${Math.floor(s / 60)} min` : s < 86400 ? `il y a ${Math.floor(s / 3600)} h` : `il y a ${Math.floor(s / 86400)} j`; };
+// une carte d'après sa clé (+ brillance / finition de l'exemplaire si on la connaît)
+function cardOf(o) {
+    const k = typeof o === 'string' ? o : o && o.k, c = k && G.cardOfKey(k);
+    if (!c) return null;
+    if (o.k) { c.shiny = o.shiny > 0; c.finish = o.fin || null; }
+    return c;
+}
+const thumbOf = k => { const c = k && G.cardOfKey(k); return c ? (c.duo ? c.duo[0] : imgOf(c.u, c.name)) : null; };
+function miniHtml(c, opt = {}) {
+    return `<div class="mini${opt.sel ? ' sel' : ''}" data-k="${esc(c.key)}">${cardHtml(c, { flat: true, count: opt.count })}${opt.x ? '<button class="mini-x" title="Retirer">✕</button>' : ''}</div>`;
+}
+const bindMinis = (root, list) => root.querySelectorAll('.mini').forEach(el => el.onclick = e => { if (!e.target.closest('.mini-x')) { const c = list.find(x => x.key === el.dataset.k); if (c) inspect(c); } });
+function setTradeBadge() {
+    const b = $('#nav-trades');
+    if (b) { b.textContent = TRADES_IN; b.hidden = !ME || !TRADES_IN; }
+}
+async function reloadState() {
+    if (!ME) return;
+    const j = await api('GET', '/api/me');
+    if (!j.state) return;
+    S = Object.assign(Engine.fresh(), j.state); renderCoins();
+    if (!$('#opening').classList.contains('on') && !$('#book').classList.contains('on')) { const t = currentTab(); if (t === 'binder') renderLibrary(); if (t === 'players') renderPlayers(); if (t === 'shop') renderShop(); }
+}
+// nouvelles des échanges (ping)
+function tradeNews(inbox, count) {
+    const tr = (inbox || []).filter(m => m.trade);
+    if (tr.length) {
+        const m = tr[tr.length - 1];
+        toast(m.trade === 'accepted' ? `✅ ${m.by} a accepté ton échange !` : m.trade === 'refused' ? `❌ ${m.by} a refusé ton échange.` : `⚠️ Ton échange avec ${m.by} est annulé : une carte n’était plus là.`, 5000);
+        if (tr.some(x => x.trade === 'accepted')) { sfx('coins'); reloadState(); }
+        else if (currentTab() === 'players') renderTrades();
+    }
+    if (count == null) return;
+    const more = count > TRADES_IN;
+    TRADES_IN = count; setTradeBadge();
+    if (more) { if (!tr.length) toast(`🔁 ${count > 1 ? `${count} propositions d’échange t’attendent` : 'Nouvelle proposition d’échange'} (onglet Joueurs)`, 5000); if (currentTab() === 'players') renderTrades(); }
+}
+// mon profil, calculé ici (pas besoin d'attendre le serveur)
+function myProfile() {
+    const st = G.profileStats(S), pr = S.profile || {};
+    const own = k => k && S.cards[k] ? { k, n: S.cards[k].n, shiny: S.cards[k].shiny || 0, fin: S.cards[k].fin || null } : null;
+    const tid = pr.title && st.titles.includes(pr.title) ? pr.title : st.titles[st.titles.length - 1];
+    return { pseudo: ME.pseudo, mine: true, title: (titleOf(tid) || {}).label, titleId: tid, avatar: own(pr.avatar) || own(st.bestKey), avatarSet: !!own(pr.avatar),
+        showcase: (pr.showcase || []).map(own).filter(Boolean), stats: st, titles: st.titles };
+}
+function profileHtml(p) {
+    const av = cardOf(p.avatar), st = p.stats, show = p.showcase.map(cardOf).filter(Boolean);
+    const stat = (n, l) => `<span><b>${fmt(n)}</b> ${l}</span>`;
+    const slots = show.map(c => miniHtml(c)).join('') + Array.from({ length: 5 - show.length }, () => '<div class="mini empty"><span>?</span></div>').join('');
+    const titleSel = p.mine ? `<select id="pf-title" title="Ton titre">${TITLES.map(t => `<option value="${t.id}" ${t.id === p.titleId ? 'selected' : ''} ${p.titles.includes(t.id) ? '' : 'disabled'}>${p.titles.includes(t.id) ? '🏅' : '🔒'} ${esc(t.label)}${p.titles.includes(t.id) ? '' : ' — ' + esc(t.hint)}</option>`).join('')}</select>` : '';
+    return `<div class="prof${p.mine ? ' mine' : ''}">
+      <div class="prof-av">${av ? miniHtml(av) : `<div class="mini empty"><span>${esc(p.pseudo[0] || '?')}</span></div>`}${p.mine ? '<button class="btn sm" id="pf-av">🖼️ Avatar</button>' : ''}</div>
+      <div class="prof-id">
+        <div class="prof-name">${esc(p.pseudo)}</div>
+        <div class="prof-title">${p.title ? '🏅 ' + esc(p.title) : ''}</div>${titleSel}
+        <div class="prof-stats">${stat(st.cards, 'cartes')}${stat(st.specials, 'raretés spéciales')}${stat(st.waifus, 'waifus')}${stat(st.done, 'classeurs 🏆')}${stat(st.trades, 'échanges')}${stat(st.opened, 'packs ouverts')}</div>
+      </div>
+      <div class="prof-show"><div class="prof-h">⭐ Vitrine${p.mine ? ' <button class="btn sm" id="pf-show">Choisir</button>' : ''}</div><div class="prof-cards">${slots}</div></div>
+      ${p.mine ? '' : `<div class="prof-act"><button class="btn gold" id="pf-trade">🔁 Proposer un échange</button><button class="btn" id="pf-gift">🎁 Offrir une carte</button></div>`}
+    </div>`;
+}
+function bindProfile(root, p) {
+    bindMinis(root, [cardOf(p.avatar), ...p.showcase.map(cardOf)].filter(Boolean));
+    if (p.mine) {
+        root.querySelector('#pf-title').onchange = e => saveProfile({ title: e.target.value });
+        root.querySelector('#pf-av').onclick = () => openPicker({ title: 'Choisis ton avatar', src: 'me', max: 1, done: sel => sel.length && saveProfile({ avatar: sel[0].k }) });
+        root.querySelector('#pf-show').onclick = () => openPicker({ title: 'Ta vitrine : 5 cartes à montrer', src: 'me', max: 5, pre: p.showcase, done: sel => saveProfile({ showcase: sel.map(o => o.k) }) });
+    } else {
+        const go = gift => { if (!ME) { closeProfile(); return openAuth('register'); } closeProfile(); openTrade(p.pseudo, gift); };
+        root.querySelector('#pf-trade').onclick = () => go(false);
+        root.querySelector('#pf-gift').onclick = () => go(true);
+    }
+}
+async function saveProfile(patch) {
+    const j = await api('POST', '/api/profile', patch);
+    if (j.error) return toast(j.error);
+    S.profile = Object.assign({ avatar: null, showcase: [], title: null }, S.profile, patch);
+    toast('Profil enregistré ✓');
+    renderMyProfile();
+}
+async function renderPlayers() {
+    $('#pl-guest').hidden = !!ME;
+    $('#pl-mine').hidden = !ME;
+    if (ME) { renderMyProfile(); renderTrades(); }
+    renderPlayerList();
+}
+function renderMyProfile() {
+    if (!ME) return;
+    const p = myProfile();
+    $('#pl-me').innerHTML = profileHtml(p);
+    bindProfile($('#pl-me'), p);
+}
+let plQ = 0, plT = 0;
+async function renderPlayerList() {
+    const my = ++plQ, q = $('#pl-search').value.trim();
+    const j = await api('GET', '/api/players?q=' + encodeURIComponent(q));
+    if (my !== plQ) return;
+    if (j.error) { $('#players').innerHTML = `<p class="prog">${esc(j.error)}</p>`; return; }
+    $('#players').innerHTML = j.players.length ? j.players.map((p, i) => {
+        const im = thumbOf(p.avatar);
+        return `<button class="pl-row${p.me ? ' me' : ''}" data-p="${esc(p.pseudo)}"><span class="pl-rank">${q ? '' : i + 1}</span>
+          <span class="pl-av">${im ? `<img src="${esc(im)}" alt="" loading="lazy">` : esc(p.pseudo[0] || '?')}</span>
+          <span class="pl-id"><b>${esc(p.pseudo)}${p.me ? ' <small>(toi)</small>' : ''}</b>${p.title ? `<small>🏅 ${esc(p.title)}</small>` : ''}</span>
+          <span class="pl-n">${fmt(p.cards)} cartes</span></button>`;
+    }).join('') : '<p class="prog">Aucun joueur trouvé.</p>';
+    $('#players').querySelectorAll('.pl-row').forEach(b => b.onclick = () => b.classList.contains('me') ? $('#pl-me').scrollIntoView({ behavior: 'smooth' }) : openProfile(b.dataset.p));
+}
+$('#pl-search').oninput = () => { clearTimeout(plT); plT = setTimeout(renderPlayerList, 250); };
+$('#pl-signup').onclick = () => openAuth('register');
+async function openProfile(pseudo) {
+    $('#prof-body').innerHTML = '<p class="prog">Chargement…</p>';
+    $('#prof').classList.add('on');
+    const j = await api('GET', '/api/profile?p=' + encodeURIComponent(pseudo));
+    if (j.error) { $('#prof-body').innerHTML = `<p class="prog">${esc(j.error)}</p>`; return; }
+    $('#prof-body').innerHTML = profileHtml(j.profile);
+    bindProfile($('#prof-body'), j.profile);
+}
+function closeProfile() { $('#prof').classList.remove('on'); }
+$('#prof-x').onclick = closeProfile;
+$('#prof').onclick = e => { if (e.target.id === 'prof') closeProfile(); };
+
+/* --- les échanges --- */
+async function renderTrades() {
+    if (!ME) return;
+    const j = await api('GET', '/api/trades');
+    if (j.error) { $('#trades').innerHTML = `<p class="prog">${esc(j.error)}</p>`; return; }
+    TRADES = j.trades;
+    TRADES_IN = TRADES.filter(t => !t.mine && t.status === 'pending').length; setTradeBadge();
+    $('#tr-count').textContent = TRADES_IN ? `${TRADES_IN} à répondre` : '';
+    $('#trades').innerHTML = TRADES.length ? TRADES.map(tradeHtml).join('')
+        : '<p class="prog">Aucun échange pour l’instant. Ouvre le profil d’un joueur pour lui proposer un échange ou lui offrir une carte.</p>';
+    $('#trades').querySelectorAll('.trade-it').forEach(el => {
+        const t = TRADES.find(x => x.id === +el.dataset.id);
+        bindMinis(el, [...t.give, ...t.take].map(k => G.cardOfKey(k)).filter(Boolean));
+        el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => answerTrade(t, b.dataset.act, b));
+    });
+}
+function tradeHtml(t) {
+    const other = t.mine ? t.to : t.from, iGive = t.mine ? t.give : t.take, iGet = t.mine ? t.take : t.give;
+    const cards = ks => ks.length ? ks.map(k => { const c = G.cardOfKey(k); return c ? miniHtml(c) : ''; }).join('') : '<p class="ti-none">rien</p>';
+    const gift = !t.take.length;
+    const head = t.mine ? (gift ? `🎁 Tu offres à <b>${esc(other)}</b>` : `📤 Tu proposes à <b>${esc(other)}</b>`) : (gift ? `🎁 <b>${esc(other)}</b> t’offre` : `📩 <b>${esc(other)}</b> te propose`);
+    const pend = t.status === 'pending';
+    const act = !pend ? '' : t.mine ? '<button class="btn" data-act="cancel">Annuler</button>'
+        : `<button class="btn gold" data-act="accept" ${t.ok ? '' : 'disabled'}>${gift ? '🎁 Accepter le cadeau' : '✅ Accepter'}</button><button class="btn" data-act="refuse">Refuser</button>`;
+    return `<div class="trade-it ${t.mine ? 'out' : 'in'} st-${t.status}" data-id="${t.id}">
+      <div class="ti-head"><span>${head}</span><small>${pend ? ago(t.at) : T_STATUS[t.status] + ' · ' + ago(t.upd)}</small></div>
+      <div class="ti-row">
+        <div class="ti-side"><small>Tu reçois</small><div class="ti-cards">${cards(iGet)}</div></div>
+        ${gift ? '' : `<div class="ti-arrow">⇄</div><div class="ti-side"><small>Tu donnes</small><div class="ti-cards">${cards(iGive)}</div></div>`}
+      </div>
+      ${pend && !t.ok ? '<p class="ti-warn">⚠️ Une des cartes n’est plus disponible.</p>' : ''}
+      ${act ? `<div class="ti-act">${act}</div>` : ''}
+    </div>`;
+}
+async function answerTrade(t, act, btn) {
+    if (act === 'accept' && t.take.length && !confirm(`Donner ${t.take.length} carte${t.take.length > 1 ? 's' : ''} à ${t.from} ?`)) return;
+    btn.disabled = true;
+    const j = act === 'cancel' ? await api('POST', '/api/trade/cancel', { id: t.id }) : await api('POST', '/api/trade/answer', { id: t.id, accept: act === 'accept' });
+    if (j.error) { toast(j.error); return renderTrades(); }
+    if (act === 'accept') {
+        applyPatch(j.patch); noteRewards(j.rewards); renderCoins();
+        sfx('coins'); glowPulse('.wallet');
+        const rw = (j.rewards || []).reduce((s, r) => s + r.coins, 0);
+        toast(`✅ Échange fait avec ${t.from} !${rw ? ` 🏆 Palier de classeur : +${fmt(rw)} 🪙` : ''}`, 4500);
+        renderMyProfile();
+    } else toast(act === 'cancel' ? 'Proposition annulée.' : 'Proposition refusée.');
+    renderTrades();
+}
+
+/* --- préparer un échange --- */
+let TB = null;
+function openTrade(pseudo, gift) {
+    TB = { to: pseudo, gift, give: [], take: [] };
+    $('#tb-who').textContent = pseudo;
+    $('#tb-title').firstChild.textContent = gift ? '🎁 Offrir à ' : '🔁 Échange avec ';
+    $('#tb-take-side').hidden = gift; $('#tb-arrow').hidden = gift;
+    $('#tb-err').textContent = '';
+    drawTrade();
+    $('#trade').classList.add('on');
+}
+function drawTrade() {
+    const side = (l, id) => { $(id).innerHTML = l.map(o => miniHtml(cardOf(o), { x: true })).join('') || '<p class="ti-none">Aucune carte</p>'; };
+    side(TB.give, '#tb-give'); side(TB.take, '#tb-take');
+    for (const [l, id] of [[TB.give, '#tb-give'], [TB.take, '#tb-take']]) {
+        bindMinis($(id), l.map(cardOf));
+        $(id).querySelectorAll('.mini-x').forEach(x => x.onclick = () => { const k = x.parentNode.dataset.k; l.splice(l.findIndex(o => o.k === k), 1); drawTrade(); });
+    }
+    $('#tb-add-give').disabled = TB.give.length >= 5; $('#tb-add-take').disabled = TB.take.length >= 5;
+    $('#tb-send').disabled = TB.gift ? !TB.give.length : !TB.give.length && !TB.take.length;
+    $('#tb-send').textContent = TB.gift ? `🎁 Offrir ${TB.give.length > 1 ? 'ces cartes' : 'cette carte'}` : 'Envoyer la proposition';
+}
+$('#tb-add-give').onclick = () => openPicker({ title: TB.gift ? `Quelle carte offrir à ${TB.to} ?` : 'Tes cartes à donner', src: 'me', max: 5, pre: TB.give, dup: true, done: sel => { TB.give = sel; drawTrade(); } });
+$('#tb-add-take').onclick = () => openPicker({ title: `Les cartes de ${TB.to}`, src: TB.to, max: 5, pre: TB.take, done: sel => { TB.take = sel; drawTrade(); } });
+$('#tb-send').onclick = async () => {
+    $('#tb-send').disabled = true;
+    const j = await api('POST', '/api/trade/offer', { to: TB.to, give: TB.give.map(o => o.k), take: TB.take.map(o => o.k) });
+    if (j.error) { $('#tb-err').textContent = j.error; $('#tb-send').disabled = false; return; }
+    closeTrade();
+    toast(TB.gift ? `🎁 Cadeau envoyé à ${TB.to} : il doit l’accepter.` : `🔁 Proposition envoyée à ${TB.to} !`, 4000);
+    showTab('players');
+};
+function closeTrade() { $('#trade').classList.remove('on'); }
+$('#tb-x').onclick = closeTrade;
+$('#trade').onclick = e => { if (e.target.id === 'trade') closeTrade(); };
+
+/* --- choisir des cartes (ma collection en local, celle d'un autre joueur par le serveur) --- */
+let PK = null;
+function openPicker(opt) {
+    PK = { ...opt, sel: new Map((opt.pre || []).map(o => [o.k, o])), items: [], all: null, tok: 0, total: 0, first: true };
+    $('#pick-title').textContent = opt.title;
+    $('#pick-q').value = ''; $('#pick-dup').checked = !!opt.dup;
+    $('#pick-ok').hidden = opt.max === 1;
+    $('#pick').classList.add('on');
+    loadPicker(true);
+}
+function localCollection(q, dup) {
+    const out = [];
+    for (const [k, o] of Object.entries(S.cards)) {
+        if (dup && o.n < 2) continue;
+        const c = G.cardOfKey(k);
+        if (!c || (q && !(c.name + ' ' + (c.anime || '')).toLowerCase().includes(q))) continue;
+        out.push({ k, n: o.n, shiny: o.shiny || 0, fin: o.fin || null, r: RANK[c.rarity] || 0 });
+    }
+    return out.sort((a, b) => b.r - a.r || (b.shiny > 0) - (a.shiny > 0) || (a.k < b.k ? -1 : 1));
+}
+async function loadPicker(reset) {
+    const q = $('#pick-q').value.trim().toLowerCase(), dup = $('#pick-dup').checked, my = ++PK.tok;
+    if (reset) { PK.items = []; $('#pick-grid').scrollTop = 0; }
+    if (PK.src === 'me') {
+        if (reset) PK.all = localCollection(q, dup);
+        if (PK.first && dup && !PK.all.length) { $('#pick-dup').checked = false; PK.all = localCollection(q, false); } // pas de doublons : toutes les cartes
+        PK.first = false;
+        PK.items = PK.all.slice(0, PK.items.length + 60); PK.total = PK.all.length;
+    } else {
+        if (reset) $('#pick-grid').innerHTML = '<p class="prog">Chargement…</p>';
+        const j = await api('GET', `/api/collection?p=${encodeURIComponent(PK.src)}&q=${encodeURIComponent(q)}${dup ? '&dup=1' : ''}&offset=${PK.items.length}`);
+        if (!PK || my !== PK.tok) return;
+        if (j.error) { $('#pick-grid').innerHTML = `<p class="prog">${esc(j.error)}</p>`; return; }
+        PK.items.push(...j.cards); PK.total = j.total;
+    }
+    drawPicker();
+}
+function drawPicker() {
+    const list = PK.items.map(o => ({ o, c: cardOf(o) })).filter(x => x.c);
+    $('#pick-grid').innerHTML = list.length ? list.map(({ o, c }) => miniHtml(c, { sel: PK.sel.has(o.k), count: o.n })).join('') : '<p class="prog">Aucune carte.</p>';
+    $('#pick-more').style.display = PK.items.length < PK.total ? '' : 'none';
+    $('#pick-sel').textContent = PK.max > 1 ? `${PK.sel.size} / ${PK.max} choisie${PK.sel.size > 1 ? 's' : ''}` : 'Touche une carte';
+    $('#pick-grid').querySelectorAll('.mini').forEach(el => el.onclick = () => {
+        const o = PK.items.find(x => x.k === el.dataset.k);
+        if (!o) return;
+        if (PK.max === 1) { const done = PK.done; closePicker(); return done([o]); }
+        if (PK.sel.has(o.k)) PK.sel.delete(o.k);
+        else if (PK.sel.size >= PK.max) return toast(`${PK.max} cartes maximum.`);
+        else PK.sel.set(o.k, o);
+        el.classList.toggle('sel', PK.sel.has(o.k));
+        $('#pick-sel').textContent = `${PK.sel.size} / ${PK.max} choisie${PK.sel.size > 1 ? 's' : ''}`;
+    });
+}
+function closePicker() { $('#pick').classList.remove('on'); PK = null; }
+let pickT = 0;
+$('#pick-q').oninput = () => { clearTimeout(pickT); pickT = setTimeout(() => PK && loadPicker(true), 250); };
+$('#pick-dup').onchange = () => PK && loadPicker(true);
+$('#pick-more').onclick = () => PK && loadPicker(false);
+$('#pick-ok').onclick = () => { const done = PK.done, sel = [...PK.sel.values()]; closePicker(); done(sel); };
+$('#pick-x').onclick = closePicker;
+$('#pick').onclick = e => { if (e.target.id === 'pick') closePicker(); };
 
 /* ---------- admin ---------- */
 function parseAmount(v) {
@@ -722,12 +1042,14 @@ function renderCoins() { $('#coins').textContent = fmt(S.coins); }
 function currentTab() { const b = document.querySelector('nav button.on'); return b ? b.dataset.tab : 'shop'; }
 function showTab(tab) {
     if (tab === 'admin' && !(ME && ME.admin)) tab = 'shop';
+    if (tab === 'players' && !SERVER) tab = 'shop';
     document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === tab));
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + tab));
     if (tab === 'binder') renderLibrary();
     if (tab === 'stats') renderStats();
     if (tab === 'shop') renderShop();
     if (tab === 'admin') renderAdmin();
+    if (tab === 'players') renderPlayers();
 }
 function renderAll() { renderCoins(); renderAccount(); renderEvent(); showTab(currentTab()); }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -741,7 +1063,7 @@ Promise.all([
     D = d; G = Engine.create(D); U = G.U; BY_POP = G.BY_POP;
     SERVER = !!m;
     if (m && m.me) { ME = m.me; S = Object.assign(Engine.fresh(), m.state); setTimeout(ping, 1500); }
-    else S = guestState();
+    else loadGuest();
     if (m && m.event) setEvent(m.event);
     startPing();
     renderAll();

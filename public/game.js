@@ -293,7 +293,7 @@ function packHtml(p, off, tag) {
       <div class="pk-emo">${p.emo}</div><div class="pk-n">${esc(p.name)}</div><div class="pk-d">${esc(p.desc)}</div><div class="pk-p">${p.price ? fmt(p.price) + ' 🪙' : 'Gratuit'}</div></div>`;
 }
 function renderShop() {
-    const list = PACKS.filter(p => p.type !== 'season' || seasonActive(p.season));
+    const list = PACKS.filter(p => G.packFor(p.id));
     $('#packs').innerHTML = list.map(p => packHtml(p, S.coins < p.price, p.type === 'season' ? 'ÉVÉNEMENT' : p.type === 'waifu' ? 'NOUVEAU' : '')).join('');
     $('#packs').querySelectorAll('.pack').forEach(el => el.onclick = () => startOpen(PACKS.find(x => x.id === el.dataset.id)));
     renderAnimePacks();

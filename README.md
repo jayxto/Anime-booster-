@@ -45,7 +45,7 @@ npm start          # http://localhost:3000
 ## Mettre à jour les cartes
 ```
 npm run fetch      # animés + persos depuis AniList (cache dans tools/cache)
-npm run build      # génère public/cards.json
+npm run cards      # génère public/cards.json
 ```
 `tools/pool.json`, `extra.json`, `halloween.json` : noms, Pokédex, Duos et cartes de saison repris d'Anime Game.
 

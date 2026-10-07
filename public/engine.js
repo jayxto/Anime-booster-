@@ -347,6 +347,7 @@ function create(D) {
         if (id === 'free') return FREE_PACK;
         if (String(id).startsWith('anime:')) return animePack(String(id).slice(6));
         const p = PACKS.find(x => x.id === id);
+        if (p && p.type === 'waifu' && !WU.length) return null;
         return p && (p.type !== 'season' || seasonActive(p.season, now)) ? p : null;
     }
     const freeLeft = (S, now = Date.now()) => Math.max(0, (S.lastFree || 0) + FREE_EVERY - now);

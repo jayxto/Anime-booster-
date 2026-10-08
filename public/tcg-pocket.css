@@ -441,3 +441,11 @@
  #tab-tcg .pocket-v2 .pocket-fx-impact{display:none}
  #tab-tcg .pocket-v2 .pocket-fx-announcement{opacity:1;transform:translate(-50%,-50%)}
 }
+
+/* Stagger combat FX so a human attack and the Sensei's reply are both visible. */
+#tab-tcg .pocket-v2 .pocket-fx-scene .pocket-fx-vignette,
+#tab-tcg .pocket-v2 .pocket-fx-scene .pocket-fx-projectile,
+#tab-tcg .pocket-v2 .pocket-fx-scene .pocket-fx-impact,
+#tab-tcg .pocket-v2 .pocket-fx-scene .pocket-fx-announcement{
+ animation-delay:var(--fx-delay,0s);
+}

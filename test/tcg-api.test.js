@@ -89,6 +89,33 @@ test('room cancellation, expiration, persisted restart and deck snapshot', async
     assert.equal((await call('GET /api/tcg')).room, null);
     assert.equal((await call('POST /api/tcg/join', users[1], { code: next.code })).status, 400);
 });
+
+test('a saved PvP match auto-passes timed-out turns on GET, even after no requests', async () => {
+    const { call, users, settings } = fixture();
+    const created = await call('POST /api/tcg/create', users[0], { mode: 'multi' });
+    const code = created.room.code;
+    await call('POST /api/tcg/join', users[1], { code });
+    await setupPlayer(call, users[0]);
+    await setupPlayer(call, users[1]);
+    const key = 'tcg:' + code;
+    const room = settings.get(key), initial = room.game;
+    assert.equal(initial.timed, true);
+    assert.equal(initial.turn, 1);
+    initial.turnStartedAt = Date.now() - 91_000;
+    initial.players[initial.active].chargedAt = initial.turnStartedAt;
+    const next = await call('GET /api/tcg', users[0]);
+    assert.equal(next.room.game.turn, 2);
+    assert.equal(next.room.game.active, 1 - initial.active);
+    assert.equal(next.room.game.revision, initial.revision + 1);
+    assert.equal(settings.get(key).game.turn, 2, 'timed match must be persisted');
+    const acting = settings.get(key).game.players[settings.get(key).game.active];
+    acting.timeRemainingMs = 2_000;
+    acting.chargedAt = Date.now() - 3_000;
+    const timedOut = await call('GET /api/tcg', users[0]);
+    assert.equal(timedOut.room.game.winner, initial.active);
+    assert.equal(timedOut.room.game.phase, 'finished');
+});
+
 test('server rate limits apply to TCG endpoints', async () => {
     const { options, users } = fixture(), api = createApi({ ...options, limited: () => true });
     assert.equal((await api['POST /api/tcg/create']({}, users[0], { mode: 'solo' })).status, 429);

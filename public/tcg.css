@@ -181,7 +181,7 @@
 #tab-tcg .tcg-victory h2{font-size:clamp(27px,5vw,54px);font-weight:950;letter-spacing:.1em;color:#ffe998;text-shadow:0 0 20px #ffb300a8;position:relative;z-index:1}
 #tab-tcg .tcg-victory>p,#tab-tcg .tcg-victory>span{position:relative;z-index:1}
 #tab-tcg .tcg-confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0}
-#tab-tcg .tcg-confetti i{position:absolute;top:-12%;left:calc((var(--n) * 37% + 7%) / 1);width:8px;height:16px;background:hsl(calc(var(--n) * 42deg),96%,68%);opacity:0;transform:rotate(calc(var(--n) * 13deg))}
+#tab-tcg .tcg-confetti i{position:absolute;top:-12%;left:var(--x);width:8px;height:16px;background:hsl(calc(var(--n) * 42deg),96%,68%);opacity:0;transform:rotate(calc(var(--n) * 13deg))}
 @media(prefers-reduced-motion:no-preference){
   #tab-tcg .hero-hit{animation:tcg-shake .45s ease-out}
   #tab-tcg .hp-delta{animation:tcg-damage 1.45s both}

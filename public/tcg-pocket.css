@@ -1,0 +1,102 @@
+/* The compact anime card battlefield has original styling, no assets from other games. */
+#tab-tcg .pocket-wrap{max-width:850px;margin:16px auto 30px;color:#f8f5ff;--pocket-blue:#177ace;--pocket-pink:#dc5e83}
+#tab-tcg .pocket-board{overflow:hidden;border:4px solid #f6f0ff;border-radius:26px;box-shadow:0 22px 70px #070311b0,0 0 0 2px #50427e;position:relative;background:#eee}
+#tab-tcg .pocket-zone{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:17px 18px 24px;isolation:isolate}
+#tab-tcg .pocket-zone::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.21;background:repeating-linear-gradient(120deg,transparent 0 22px,#fff8 23px 24px,transparent 25px 55px),radial-gradient(ellipse at center,#fff9,transparent 70%)}
+#tab-tcg .pocket-zone.opponent{background:linear-gradient(155deg,#f1969b 0%,#e1678f 55%,#d04872 100%);padding-bottom:28px}
+#tab-tcg .pocket-zone.player{background:linear-gradient(20deg,#59b3f2,#298ede 53%,#1671bf);padding-top:30px}
+#tab-tcg .pocket-header{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;background:#170a308a;padding:8px 13px;border-radius:13px;color:white;box-shadow:0 3px 10px #0003}
+#tab-tcg .pocket-header b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tab-tcg .pocket-header strong{font-size:15px;color:#fff4a0;white-space:nowrap}
+#tab-tcg .pocket-header small{font-size:11px;opacity:.9;white-space:nowrap}
+#tab-tcg .pocket-cardbacks{display:flex;justify-content:center;gap:3px;min-height:29px}
+#tab-tcg .pocket-cardback{display:grid;place-items:center;width:27px;height:37px;background:radial-gradient(circle,#ffe19f 0 8%,#252163 9% 35%,#103565 36% 70%,#101e40 72%);border:2px solid #f4d487;border-radius:4px;transform:rotate(-8deg);font-size:11px;text-shadow:0 0 4px white;color:#fff}
+#tab-tcg .pocket-cardback:nth-child(even){transform:rotate(7deg)}
+#tab-tcg .pocket-label{align-self:center;border-radius:30px;background:#190b358a;color:white;font-size:10px;font-weight:900;letter-spacing:2px;padding:4px 13px;box-shadow:0 2px 6px #1e103c35}
+#tab-tcg .pocket-bench{display:grid;width:min(100%,590px);grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;align-items:stretch}
+#tab-tcg .pocket-empty{border:2px dashed #ffffff90;background:#ffffff2c;border-radius:12px;min-height:115px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+#tab-tcg .pocket-empty span{font-size:36px;font-weight:300;line-height:1}
+#tab-tcg .pocket-empty small{font-size:10px;opacity:.82}
+#tab-tcg .pocket-active{width:min(252px,74%);min-height:240px;display:grid;place-items:center}
+#tab-tcg .pocket-unit{position:relative;min-width:0;width:100%;padding:7px;border:3px solid #ffe4a7;border-radius:16px;background:linear-gradient(155deg,#1d1b3f,#322b58);box-shadow:0 9px 16px #20102870,0 0 0 1px #fff3 inset}
+#tab-tcg .pocket-unit.mine{border-color:#8ce5ff}
+#tab-tcg .pocket-unit.rival{border-color:#ffdfad}
+#tab-tcg .pocket-unit.bench-unit{border-width:2px;border-radius:10px;padding:5px}
+#tab-tcg .pocket-art{position:relative;height:190px;border-radius:11px 11px 3px 3px;background:#181338;overflow:hidden}
+#tab-tcg .pocket-art img{width:100%;height:100%;object-fit:cover;object-position:center 24%;display:block}
+#tab-tcg .pocket-noart{display:grid;place-items:center;font-size:50px;height:100%;background:radial-gradient(circle,#665fb3,#232144)}
+#tab-tcg .bench-unit .pocket-art{height:96px;border-radius:6px}
+#tab-tcg .pocket-energy{position:absolute;top:5px;left:5px;padding:2px 7px;background:#0d104ad9;border:1px solid #a3c9ff99;border-radius:15px;color:#ffe88b;font-weight:900;font-size:12px;text-shadow:0 1px 3px #000}
+#tab-tcg .bench-unit .pocket-energy{font-size:10px;padding:1px 4px}
+#tab-tcg .pocket-evolved{position:absolute;right:3px;top:4px;background:#ffd15b;color:#5b2255;font-size:9px;font-weight:900;padding:3px 5px;border-radius:4px}
+#tab-tcg .pocket-card-info{display:flex;justify-content:space-between;align-items:center;gap:5px;margin:7px 2px 5px;font-size:13px}
+#tab-tcg .pocket-card-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tab-tcg .pocket-card-info b{color:#ffcedd;white-space:nowrap;font-size:12px}
+#tab-tcg .bench-unit .pocket-card-info{flex-direction:column;align-items:flex-start;margin:5px 1px 3px;font-size:11px;gap:0}
+#tab-tcg .bench-unit .pocket-card-info b{font-size:11px}
+#tab-tcg .pocket-hpbar{height:7px;background:#381d37;border:1px solid #ffffff42;border-radius:7px;overflow:hidden}
+#tab-tcg .pocket-hpbar i{display:block;height:100%;background:linear-gradient(90deg,#ffbd55,#d8ef84,#65dfaa);transition:width .4s}
+#tab-tcg .pocket-effects{font-size:10px;padding:3px 1px}
+#tab-tcg .pocket-unit-buttons{display:flex;gap:4px;margin:6px 0 1px;flex-wrap:wrap}
+#tab-tcg .pocket-unit-buttons button{flex:1;min-width:40px;font-size:10px;padding:5px 4px;border:1px solid #ffffff70;border-radius:7px;background:#302467;color:white}
+#tab-tcg .pocket-center{height:54px;display:flex;align-items:center;justify-content:center;gap:15px;position:relative;color:#523a6c;background:linear-gradient(90deg,#ffffff,#e0edff,#ffffff);font-size:11px;font-weight:800;letter-spacing:.9px;box-shadow:0 -4px 15px #fff5,0 4px 15px #fff5}
+#tab-tcg .pocket-center b{background:linear-gradient(110deg,#eb748c,#589bee);padding:5px 13px;color:white;border-radius:20px;box-shadow:0 1px 6px #804c98}
+#tab-tcg .pocket-center small{font-weight:900;color:#524a74}
+#tab-tcg .pocket-bottom{padding:20px;border:1px solid #403267;border-radius:0 0 19px 19px;background:linear-gradient(155deg,#17152e,#24203d);margin:0 6px}
+#tab-tcg .pocket-guide{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#31234d;border:1px solid #715ab1;padding:14px;border-radius:12px;color:#f9e7c4;font-weight:700}
+#tab-tcg .pocket-guide span{font-size:12px;flex:1}
+#tab-tcg .pocket-guide button{font-size:12px}
+#tab-tcg .pocket-controls{display:grid;gap:12px}
+#tab-tcg .pocket-attach{display:flex;align-items:center;justify-content:space-between;gap:15px;background:#2c244f;padding:10px;border-radius:12px}
+#tab-tcg .pocket-attach span{font-size:12px;font-weight:800;color:#ffda88}
+#tab-tcg .pocket-attach button{padding:8px 11px;font-size:12px}
+#tab-tcg .pocket-attacks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+#tab-tcg button.pocket-attack{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;gap:6px;padding:14px;border:1px solid #8cc8f3;background:#253c71;border-radius:12px;min-height:72px;white-space:normal}
+#tab-tcg .pocket-attack strong{font-size:13px}
+#tab-tcg .pocket-attack span{font-size:11px;color:#cdd9f4;line-height:1.35}
+#tab-tcg button.pocket-attack.special{border-color:#f7c36c;background:#50366d}
+#tab-tcg button.pocket-pass{font-size:12px;justify-self:end;padding:8px 15px;border-color:#aa9dbf}
+#tab-tcg .pocket-hand-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:18px 2px 11px;font-size:12px;letter-spacing:1px}
+#tab-tcg .pocket-hand-title span{color:#bcb4d2}
+#tab-tcg .pocket-hand{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-color:#8b70b8 transparent;padding:0 0 14px}
+#tab-tcg .pocket-hand-card{display:flex;flex:0 0 145px;flex-direction:column;gap:7px;border:2px solid #8a7dab;background:#19182f;border-radius:11px;padding:7px;min-height:203px;scroll-snap-align:start}
+#tab-tcg .pocket-hand-art{height:92px;position:relative;background:#403862;border-radius:6px;overflow:hidden}
+#tab-tcg .pocket-hand-art img{width:100%;height:100%;object-fit:cover;object-position:center 24%}
+#tab-tcg .pocket-hand-art span{position:absolute;left:4px;bottom:4px;background:#131129dc;border-radius:4px;padding:2px 4px;font-size:8px;font-weight:700;color:#ffdf80}
+#tab-tcg .pocket-hand-card>strong{font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+#tab-tcg .pocket-hand-card>small{color:#b7accd;line-height:1.3;font-size:10px;flex:1}
+#tab-tcg .pocket-hand-buttons{display:flex;gap:5px}
+#tab-tcg .pocket-hand-buttons button{font-size:11px;flex:1;padding:6px 3px}
+#tab-tcg .pocket-log{color:#d3c9e5;font-size:12px;margin:10px 0}
+#tab-tcg .pocket-log summary{cursor:pointer}
+#tab-tcg .pocket-log p{border-bottom:1px solid #ffffff17;padding:5px}
+#tab-tcg button.pocket-leave{display:block;margin:12px 0 0 auto;font-size:11px;color:#f7c1c9;background:transparent;border-color:#5f4b66;padding:7px}
+#tab-tcg .pocket-result{border:2px solid #a39aca;border-radius:16px;padding:16px;margin-bottom:12px;text-align:center;position:relative;overflow:hidden;background:#241b3b}
+#tab-tcg .pocket-result h2{margin:6px 0;font-size:32px;color:#ffe08e;position:relative}
+#tab-tcg .pocket-result small{font-weight:800;letter-spacing:2px}
+#tab-tcg .pocket-result p{position:relative;margin:0}
+@media(max-width:620px){
+ #tab-tcg .pocket-wrap{margin:8px -7px}
+ #tab-tcg .pocket-board{border-width:2px;border-radius:16px}
+ #tab-tcg .pocket-zone{padding:10px 7px 14px;gap:5px}
+ #tab-tcg .pocket-bench{gap:5px}
+ #tab-tcg .pocket-active{width:min(178px,60%);min-height:185px}
+ #tab-tcg .pocket-art{height:143px}
+ #tab-tcg .bench-unit .pocket-art{height:65px}
+ #tab-tcg .pocket-empty{min-height:90px}
+ #tab-tcg .pocket-empty small{font-size:9px}
+ #tab-tcg .pocket-energy{font-size:10px}
+ #tab-tcg .pocket-card-info{font-size:11px;flex-direction:column;align-items:flex-start;gap:0}
+ #tab-tcg .pocket-card-info b{font-size:10px}
+ #tab-tcg .pocket-center{height:40px;gap:5px;font-size:8px}
+ #tab-tcg .pocket-center b{padding:5px 7px}
+ #tab-tcg .pocket-center small{font-size:8px}
+ #tab-tcg .pocket-unit{border-width:2px}
+ #tab-tcg .pocket-bottom{margin:0;padding:10px}
+ #tab-tcg .pocket-attacks{gap:6px}
+ #tab-tcg button.pocket-attack{padding:8px;min-height:80px}
+ #tab-tcg .pocket-attack strong{font-size:11px}
+ #tab-tcg .pocket-attack span{font-size:10px}
+ #tab-tcg .pocket-hand-card{flex-basis:127px}
+}
+@media(prefers-reduced-motion:reduce){#tab-tcg .pocket-hpbar i{transition:none}}

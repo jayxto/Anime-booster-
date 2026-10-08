@@ -7,6 +7,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { once } = require('node:events');
 const C = require('../lib/tcg-catalog');
+C.initialize(require('../public/cards.json'));
 test('real HTTP: accounts, solo, multi, CSRF, privacy, collection isolation and disk reload', { timeout: 25000 }, async t => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'anime-tcg-test-'));
     let child, base;

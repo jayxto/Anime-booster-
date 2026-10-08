@@ -6,6 +6,8 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;'
 const disabled = yes => yes ? ' disabled' : '';
 let currentAction = null;
 let busy = false;
+let animatedEventKey = null;
+let currentMatch = null;
 let clockInterval = null;
 const asClock = ms => {
     const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -47,10 +49,13 @@ function mini(unit, player, own, inBench, index, game, cards) {
             '" title="' + esc(c.ability.text) + '">✦ ' + esc(c.ability.name) + '</button>';
     if (can && inBench && !player.active)
         buttons += '<button class="gold" data-pocket-action="promote" data-index="' + index + '">Choisir</button>';
-    return '<article class="pocket-unit' + (inBench ? ' bench-unit' : '') + (own ? ' mine' : ' rival') + '">' +
+    return '<article class="pocket-unit' + (inBench ? ' bench-unit' : '') + (own ? ' mine' : ' rival') +
+        (unit.evolved ? ' is-transformed' : '') + '" data-unit="' + unit.uid + '">' +
         '<div class="pocket-art">' + image + '<span class="pocket-energy">◆ ' + unit.energy + '</span>' +
         (unit.evolved ? '<span class="pocket-evolved">TRANSFORMATION ✦</span>' : '') + '</div>' +
         '<div class="pocket-card-info"><strong>' + esc(c.name) + '</strong><b>♥ ' + hp + '/' + max + '</b></div>' +
+        (!inBench ? '<div class="pocket-card-class"><span>' + esc(c.franchise || c.anime || 'ANIME') +
+            '</span><span>' + (unit.evolved ? '✦ FORME ÉVEILLÉE' : '★ COMBATTANT') + '</span></div>' : '') +
         '<div class="pocket-hpbar"><i style="width:' + (hp / max * 100) + '%"></i></div>' +
         ((unit.shield || unit.freeze || unit.burn) ? '<div class="pocket-effects">' +
           (unit.shield ? '🛡 ' + unit.shield + ' ' : '') + (unit.freeze ? '❄ Gel ' : '') + (unit.burn ? '🔥 ' + unit.burn : '') + '</div>' : '') +
@@ -101,22 +106,62 @@ function controls(p, opponent, g, cards) {
     if (!p.active) return '<div class="pocket-guide">⚠ Ton combattant est K.O. ! Choisis un remplaçant sur le banc.</div>';
     const c = cards[p.active.card];
     if (!c) return '<div class="pocket-guide">Chargement de la carte…</div>';
-    const basicCost = Math.max(1, Math.min(3, Math.ceil(c.cost / 2)));
-    const specialCost = c.skill ? Math.max(2, Math.min(4, Math.ceil(c.skill.cost / 2) + 1)) : null;
-    const damage = c.attack * 10 + p.active.attackBonus;
+    const basicCost = c.id === 'goku' ? 1 : Math.max(1, Math.min(3, Math.ceil(c.cost / 2)));
+    const specialCost = c.skill ? (c.id === 'goku' ? 2 :
+        Math.max(2, Math.min(4, Math.ceil(c.skill.cost / 2) + 1))) : null;
+    const basicDamage = c.id === 'goku' ? 30 : c.attack * 10;
+    const damage = basicDamage + p.active.attackBonus;
     const able = !p.active.freeze && !!opponent.active;
+    const attackButtons = [
+        { key: 'basic', title: c.id === 'goku' ? 'Coup de poing' : 'Attaque directe',
+            cost: basicCost, damage, desc: 'Frappe physique', fx: '✊' },
+        ...(c.skill ? [{ key: 'skill', title: c.skill.name, cost: specialCost,
+            damage: c.id === 'goku' ? 70 + p.active.attackBonus :
+                ['damage', 'area', 'burn', 'drain', 'freezeDamage'].includes(c.skill.effect) ?
+                    c.skill.value * 10 + p.active.attackBonus : null,
+            desc: c.skill.text, fx: '✦' }] : []),
+        ...(c.ultimate ? [{ key: 'ultimate', title: c.ultimate.name,
+            cost: c.ultimate.cost, damage: c.ultimate.damage + p.active.attackBonus,
+            desc: 'TECHNIQUE ULTIME', fx: '⚡' }] : [])
+    ];
+    const attacksHtml = attackButtons.map(a =>
+        '<button class="pocket-attack mode-' + a.key + '" data-pocket-action="attack" data-mode="' + a.key + '"' +
+        disabled(busy || !able || p.active.energy < a.cost) + '>' +
+        '<span class="pocket-attack-icon">' + a.fx + '</span>' +
+        '<span class="pocket-attack-copy"><strong>' + esc(a.title) + '</strong>' +
+        '<small>' + (a.damage === null ? esc(a.desc) : a.damage + ' DÉGÂTS') + '</small></span>' +
+        '<span class="pocket-attack-cost">◆ ' + a.cost + '</span></button>'
+    ).join('');
     return '<div class="pocket-controls"><div class="pocket-attach"><span>' +
         (p.energyUsed ? (g.turn === 1 ? '◆ Pas d’énergie au premier tour' : '✓ Énergie posée') :
             '◆ ÉNERGIE DISPONIBLE') + '</span>' +
         '<button data-pocket-action="energy" data-uid="' + p.active.uid + '"' + disabled(busy || p.energyUsed) +
-        '>+1 ◆ sur le combattant</button></div><div class="pocket-attacks">' +
-        '<button class="pocket-attack" data-pocket-action="attack" data-mode="basic"' +
-        disabled(busy || !able || p.active.energy < basicCost) +
-        '><strong>⚔ Attaque · ' + damage + ' dégâts</strong><span>' + basicCost + ' ◆ nécessaires</span></button>' +
-        (c.skill ? '<button class="pocket-attack special" data-pocket-action="attack" data-mode="skill"' +
-        disabled(busy || !able || p.active.energy < specialCost) + '><strong>✦ ' + esc(c.skill.name) +
-        '</strong><span>' + specialCost + ' ◆ · ' + esc(c.skill.text) + '</span></button>' : '') +
-        '</div><button class="pocket-pass" data-pocket-action="end"' + disabled(busy) + '>Terminer le tour →</button></div>';
+        '>+1 ◆ sur le combattant</button></div><div class="pocket-attack-heading"><strong>CHOISIS TON ATTAQUE</strong><span>Énergie attachée : ◆ ' +
+        p.active.energy + ' · Les attaques ne consomment pas d’énergie</span></div><div class="pocket-attacks">' +
+        attacksHtml + '</div><button class="pocket-pass" data-pocket-action="end"' +
+        disabled(busy) + '>Terminer sans attaquer →</button></div>';
+}
+function battleEffect(event, current) {
+    if (!event || event.type !== 'attack' && event.type !== 'evolve') return '';
+    const name = String(event.name || 'ATTAQUE').slice(0, 75);
+    const card = String(event.attackerCard || '');
+    const beam = /goku|vegeta|kamehameha|flash|ki-/i.test(card + ' ' + name);
+    const flame = /ace|fire|hiken|entai|amaterasu|hinokami/i.test(card + ' ' + name);
+    const slash = /zoro|ichigo|rukia|tanjiro|sasuke|chidori/i.test(card + ' ' + name);
+    const klass = event.type === 'evolve' ? 'transform' : flame ? 'fire' : slash ? 'slash' : beam ? 'beam' : 'impact';
+    const face = event.side === current.side ? 'from-player' : 'from-rival';
+    const number = Number(event.damage) || 0;
+    return '<div class="pocket-fx-scene fx-' + klass + ' ' + face +
+        '" role="status" aria-label="' + esc(name + (number ? ', ' + number + ' dégâts' : '')) + '">' +
+        '<div class="pocket-fx-vignette"></div><div class="pocket-fx-projectile"></div>' +
+        '<div class="pocket-fx-impact"><span>✦</span></div>' +
+        '<div class="pocket-fx-announcement"><small>' +
+        (event.type === 'evolve' ? 'NOUVELLE TRANSFORMATION' : event.mode === 'ultimate' ?
+            '⚡ TECHNIQUE ULTIME ⚡' : 'ATTAQUE SPÉCIALE') +
+        '</small><strong>' + esc(name) + '</strong><em>' +
+        (event.type === 'evolve' ? '✦ ÉVOLUTION ✦' : number ? '−' + number + ' PV' :
+            Number(event.shieldBroken) ? 'BOUCLIER TOUCHÉ' : 'EFFET ACTIVÉ') +
+        '</em></div></div>';
 }
 function victory(g) {
     if (g.winner === null) return '';
@@ -133,18 +178,24 @@ function render({ game:g, cards, isBusy, action }) {
     busy = isBusy;
     currentAction = action;
     const me = g.players[g.side], foe = g.players[1 - g.side];
+    if (g.id !== currentMatch) { currentMatch = g.id; animatedEventKey = null; }
+    const cinematicAction = g.lastAction;
+    const actionKey = cinematicAction ? g.id + ':' + cinematicAction.revision : null;
+    const showEffect = actionKey && actionKey !== animatedEventKey;
+    if (showEffect) animatedEventKey = actionKey;
     const backs = Array.from({ length: Math.min(foe.handCount, 10) },
         () => '<span class="pocket-cardback">✦</span>').join('');
     const el = $('tcg-battle');
     if (!el) return;
-    el.innerHTML = '<div class="pocket-wrap">' + victory(g) +
+    el.innerHTML = '<div class="pocket-wrap pocket-v2">' + victory(g) +
         (g.timed && g.phase === 'main' && g.winner === null
             ? '<div class="pocket-timers" aria-live="off"><strong id="pocket-turn-clock">⏳ 01:30</strong>' +
                 '<span id="pocket-player-clock">Toi : 20:00</span><span id="pocket-rival-clock">Adversaire : 20:00</span></div>'
             : g.timed ? '<div class="pocket-timers">' +
                 (g.phase === 'setup' ? '⏳ Les chronomètres démarrent après le placement des deux joueurs.' :
                     '⏳ Chronomètres arrêtés — match terminé.') + '</div>' : '') +
-        '<div class="pocket-board">' +
+        '<div class="pocket-board ' + (showEffect ? 'pocket-board-in-combat' : '') + '">' +
+        (showEffect ? battleEffect(cinematicAction, g) : '') +
         '<div class="pocket-zone opponent"><div class="pocket-header"><b>⚔ ' + esc(foe.name) +
         '</b><strong>🏆 ' + foe.points + '/3</strong><small>Deck ' + foe.deckCount + '</small></div>' +
         '<div class="pocket-cardbacks" aria-label="' + foe.handCount + ' cartes adverses cachées">' + backs + '</div>' +

@@ -115,3 +115,9 @@
 #tab-tcg .pocket-unit-buttons button.pocket-talent{flex-basis:100%;color:#fce6ae;border-color:#d7ad72;background:linear-gradient(115deg,#3b2f58,#5a3e77);white-space:normal;overflow-wrap:anywhere}
 #tab-tcg .pocket-hand-card:has(.pocket-hand-art span){position:relative}
 @media(max-width:620px){#tab-tcg .pocket-round-info{gap:5px}#tab-tcg .pocket-round-info span{font-size:9px;padding:5px 7px}}
+
+/* Live turn and player clocks: informational, server remains authoritative. */
+#tab-tcg .pocket-timers{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;background:linear-gradient(100deg,#251b43,#44345d);border:1px solid #ab8fcb;border-radius:13px;box-shadow:0 6px 20px #0005;color:#f7efff}
+#tab-tcg .pocket-timers strong{font-weight:900;letter-spacing:.5px;color:#ffe9a3}
+#tab-tcg .pocket-timers span{font-size:12px;font-weight:750;border-radius:15px;padding:5px 10px;background:#19143288}
+@media(max-width:620px){#tab-tcg .pocket-timers{padding:8px;gap:5px}#tab-tcg .pocket-timers span{font-size:10px;padding:4px 8px}}

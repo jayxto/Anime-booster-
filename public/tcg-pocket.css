@@ -108,3 +108,10 @@
 #tab-tcg .pocket-hand-card.transformation .pocket-hand-art img{filter:saturate(1.24) brightness(1.12)}
 #tab-tcg .pocket-hand-card.transformation .pocket-hand-art span{background:#9b5c1de8;color:#fff4c9}
 #tab-tcg .pocket-evolved{background:linear-gradient(110deg,#ffe289,#f2b547);color:#462754;box-shadow:0 0 12px #f7be5680}
+
+/* Pocket turn economy: independent talents and visible energy / retreat counters. */
+#tab-tcg .pocket-round-info{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+#tab-tcg .pocket-round-info span{border:1px solid #76678c80;background:#383157;padding:6px 9px;color:#e9d8ff;border-radius:16px;font-size:10px;font-weight:750}
+#tab-tcg .pocket-unit-buttons button.pocket-talent{flex-basis:100%;color:#fce6ae;border-color:#d7ad72;background:linear-gradient(115deg,#3b2f58,#5a3e77);white-space:normal;overflow-wrap:anywhere}
+#tab-tcg .pocket-hand-card:has(.pocket-hand-art span){position:relative}
+@media(max-width:620px){#tab-tcg .pocket-round-info{gap:5px}#tab-tcg .pocket-round-info span{font-size:9px;padding:5px 7px}}

@@ -92,11 +92,14 @@ test('cinematic UI uses the server event, shows three attacks and never loops an
         global.window.TCGPocket.render({ game: g, cards: C.byId, isBusy: false, action() {} });
         assert.doesNotMatch(page.innerHTML, /pocket-fx-scene/);
         const ownTurn = duel();
+        ownTurn.players[0].active.energy = 2;
+        global.window.TCGPocket.render({ game: P.view(ownTurn, 0), cards: C.byId, isBusy: false, action() {} });
+        assert.match(page.innerHTML, /data-mode="ultimate" disabled/);
+        assert.match(page.innerHTML, /data-mode="basic">/);
+        assert.match(page.innerHTML, /data-mode="skill">/);
         ownTurn.players[0].active.energy = 4;
         global.window.TCGPocket.render({ game: P.view(ownTurn, 0), cards: C.byId, isBusy: false, action() {} });
-        assert.match(page.innerHTML, /data-mode="ultimate"/);
-        assert.match(page.innerHTML, /data-mode="basic"/);
-        assert.match(page.innerHTML, /data-mode="skill"/);
+        assert.match(page.innerHTML, /data-mode="ultimate">/);
     } finally {
         global.document = before.document;
         global.window = before.window;

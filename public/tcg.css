@@ -195,3 +195,9 @@
   @keyframes tcg-fall{0%{opacity:0;transform:translateY(-15px) rotate(0)}10%{opacity:1}90%{opacity:1}100%{opacity:0;transform:translateY(280px) rotate(710deg)}}
 }
 @media(prefers-reduced-motion:reduce){#tab-tcg .tcg-confetti{display:none}#tab-tcg .hp-track>span{transition:none}}
+
+
+/* Show why a deck cannot start a salon, without disabling the lobby actions. */
+#tab-tcg .tcg-lobby-advice{margin:0 0 15px;padding:12px 15px;border:1px solid #5d4c85;border-radius:10px;background:#231c3b;color:#ebe4ff;display:flex;align-items:center;gap:14px;justify-content:space-between;font-size:12px;line-height:1.5}
+#tab-tcg .tcg-lobby-advice button{flex:none;padding:6px 10px;font-size:11px;color:#ffe4a9;border-color:#a38b56}
+@media(max-width:700px){#tab-tcg .tcg-lobby-advice{flex-wrap:wrap}}

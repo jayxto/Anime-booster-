@@ -6,7 +6,6 @@ const { mkdtemp, rm } = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const { once } = require('node:events');
-const C = require('../lib/tcg-catalog');
 test('real HTTP: accounts, solo, multi, CSRF, privacy, collection isolation and disk reload', { timeout: 25000 }, async t => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'anime-tcg-test-'));
     let child, base;
@@ -32,6 +31,16 @@ test('real HTTP: accounts, solo, multi, CSRF, privacy, collection isolation and 
     const a = await req('/api/register', { email: 'alice@example.test', pseudo: 'Alice', password: 'test-password' });
     const b = await req('/api/register', { email: 'bob@example.test', pseudo: 'Bob', password: 'test-password' });
     assert.equal(a.status, 200); assert.equal(b.status, 200);
+    // New accounts do not receive any free battle cards. Opening boosters builds their collection.
+    assert.deepEqual((await req('/api/tcg', undefined, a.cookie)).value.deck, []);
+    assert.equal((await req('/api/tcg/create', { mode: 'solo' }, a.cookie)).status, 400);
+    for (const cookie of [a.cookie, b.cookie]) for (let i = 0; i < 8; i++) {
+        const opened = await req('/api/open', { id: 'infinite' }, cookie);
+        assert.equal(opened.status, 200);
+    }
+    const firstDeck = (await req('/api/tcg', undefined, a.cookie)).value.deck;
+    const secondDeck = (await req('/api/tcg', undefined, b.cookie)).value.deck;
+    assert.equal(firstDeck.length, 20); assert.equal(secondDeck.length, 20);
     const baseline = (await req('/api/me', undefined, a.cookie)).value.state;
     assert.equal((await req('/api/tcg/create', { mode: 'solo' }, a.cookie, 'https://evil.example')).status, 403);
     const solo = (await req('/api/tcg/create', { mode: 'solo' }, a.cookie)).value.room;
@@ -46,8 +55,8 @@ test('real HTTP: accounts, solo, multi, CSRF, privacy, collection isolation and 
     assert.deepEqual(results.map(r => r.status).sort(), [200, 400]);
     assert.deepEqual((await req('/api/me', undefined, a.cookie)).value.state, baseline);
     assert.equal((await req('/api/me', undefined, a.cookie)).value.state.tcg, undefined);
-    const alternate = C.starter.map(id => id === 'naruto' ? 'sasuke' : id);
-    await req('/api/tcg/deck', { deck: alternate }, a.cookie);
+    const alternate = [...firstDeck].reverse();
+    assert.equal((await req('/api/tcg/deck', { deck: alternate }, a.cookie)).status, 200);
     // Existing file store batches writes; wait beyond both the state flush and disk debounce.
     await new Promise(r => setTimeout(r, 3000)); await stop(); await start();
     const resumed = await req('/api/tcg', undefined, a.cookie);

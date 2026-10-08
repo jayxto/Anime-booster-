@@ -6,7 +6,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;'
 const disabled = yes => yes ? ' disabled' : '';
 let currentAction = null;
 let busy = false;
-let animatedEventKey = null;
+let animatedRevision = -1;
 let currentMatch = null;
 let clockInterval = null;
 const asClock = ms => {
@@ -141,7 +141,7 @@ function controls(p, opponent, g, cards) {
         attacksHtml + '</div><button class="pocket-pass" data-pocket-action="end"' +
         disabled(busy) + '>Terminer sans attaquer →</button></div>';
 }
-function battleEffect(event, current) {
+function battleEffect(event, current, index = 0) {
     if (!event || event.type !== 'attack' && event.type !== 'evolve') return '';
     const name = String(event.name || 'ATTAQUE').slice(0, 75);
     const card = String(event.attackerCard || '');
@@ -152,7 +152,8 @@ function battleEffect(event, current) {
     const face = event.side === current.side ? 'from-player' : 'from-rival';
     const number = Number(event.damage) || 0;
     return '<div class="pocket-fx-scene fx-' + klass + ' ' + face +
-        '" role="status" aria-label="' + esc(name + (number ? ', ' + number + ' dégâts' : '')) + '">' +
+        '" style="--fx-delay:' + (index * 1.7) + 's" role="status" aria-label="' +
+        esc(name + (number ? ', ' + number + ' dégâts' : '')) + '">' +
         '<div class="pocket-fx-vignette"></div><div class="pocket-fx-projectile"></div>' +
         '<div class="pocket-fx-impact"><span>✦</span></div>' +
         '<div class="pocket-fx-announcement"><small>' +
@@ -178,11 +179,12 @@ function render({ game:g, cards, isBusy, action }) {
     busy = isBusy;
     currentAction = action;
     const me = g.players[g.side], foe = g.players[1 - g.side];
-    if (g.id !== currentMatch) { currentMatch = g.id; animatedEventKey = null; }
-    const cinematicAction = g.lastAction;
-    const actionKey = cinematicAction ? g.id + ':' + cinematicAction.revision : null;
-    const showEffect = actionKey && actionKey !== animatedEventKey;
-    if (showEffect) animatedEventKey = actionKey;
+    if (g.id !== currentMatch) { currentMatch = g.id; animatedRevision = -1; }
+    const history = Array.isArray(g.events) && g.events.length ? g.events :
+        (g.lastAction ? [g.lastAction] : []);
+    const freshEffects = history.filter(e => Number.isFinite(e.revision) && e.revision > animatedRevision).slice(-3);
+    if (freshEffects.length) animatedRevision = Math.max(...freshEffects.map(e => e.revision));
+    const showEffect = freshEffects.length > 0;
     const backs = Array.from({ length: Math.min(foe.handCount, 10) },
         () => '<span class="pocket-cardback">✦</span>').join('');
     const el = $('tcg-battle');
@@ -195,7 +197,7 @@ function render({ game:g, cards, isBusy, action }) {
                 (g.phase === 'setup' ? '⏳ Les chronomètres démarrent après le placement des deux joueurs.' :
                     '⏳ Chronomètres arrêtés — match terminé.') + '</div>' : '') +
         '<div class="pocket-board ' + (showEffect ? 'pocket-board-in-combat' : '') + '">' +
-        (showEffect ? battleEffect(cinematicAction, g) : '') +
+        (showEffect ? freshEffects.map((event, i) => battleEffect(event, g, i)).join('') : '') +
         '<div class="pocket-zone opponent"><div class="pocket-header"><b>⚔ ' + esc(foe.name) +
         '</b><strong>🏆 ' + foe.points + '/3</strong><small>Deck ' + foe.deckCount + '</small></div>' +
         '<div class="pocket-cardbacks" aria-label="' + foe.handCount + ' cartes adverses cachées">' + backs + '</div>' +

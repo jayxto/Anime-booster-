@@ -29,8 +29,18 @@
     }
     function validity() {
         if (deck.length !== 20) return `${deck.length}/20 cartes : complète ton deck.`;
+        const used = {};
+        for (const id of deck) {
+            const c = byId[id], key = c.collectionKey;
+            used[key] = (used[key] || 0) + 1;
+            if (used[key] > (c.owned || 0)) return `Collection insuffisante : ${c.name} (${c.owned || 0} possédé(s)). Retire les exemplaires manquants.`;
+        }
         if (deck.filter(id => byId[id].kind === 'character').length < 12) return 'Ajoute au moins 12 personnages.';
         return null;
+    }
+    function availableCopies(c) {
+        const used = deck.filter(id => byId[id].collectionKey === c.collectionKey).length;
+        return Math.max(0, (byId[c.id].owned || 0) - used);
     }
     const disabled = condition => condition ? ' disabled' : '';
     function cardHtml(c, { actions = '', unit = null, selected = false, target = false } = {}) {
@@ -41,19 +51,19 @@
         const deckCards = [...new Set(deck)].map(id => byId[id]);
         const counts = Object.fromEntries([...cards, ...deckCards].map(c => [c.id, deck.filter(id => id === c.id).length]));
         const filtered = cards;
-        $('catalog').innerHTML = filtered.length ? filtered.map(c => cardHtml(c, { actions: `<button data-remove="${c.id}" aria-label="Retirer ${esc(c.name)}"${disabled(busy || !counts[c.id])}>−</button><span>${counts[c.id]} / 2</span><button data-add="${c.id}" aria-label="Ajouter ${esc(c.name)}"${disabled(busy || counts[c.id] >= 2 || deck.length >= 20)}>+</button>` })).join('') : '<p class="empty">Aucune carte trouvée.</p>';
+        $('catalog').innerHTML = filtered.length ? filtered.map(c => cardHtml(c, { actions: `<button data-remove="${c.id}" aria-label="Retirer ${esc(c.name)}"${disabled(busy || !counts[c.id])}>−</button><span>${counts[c.id]} / 2 · ${byId[c.id].owned || 0} possédé(s)</span><button data-add="${c.id}" aria-label="Ajouter ${esc(c.name)}"${disabled(busy || counts[c.id] >= 2 || deck.length >= 20 || !me || availableCopies(c) < 1)}>+</button>` })).join('') : '<p class="empty">Aucune carte possédée ne correspond. Ouvre des boosters pour enrichir ta collection.</p>';
         $('deck-count').textContent = `${deck.length}/20`;
         $('deck-valid').textContent = validity() || `${deck.filter(id => byId[id].kind === 'character').length} personnages · Deck valide${JSON.stringify(deck) !== JSON.stringify(saved) ? ' · Non sauvegardé' : ' · Sauvegardé'}`;
         $('deck-list').innerHTML = deckCards.map(c => `<div class="deck-row"><b>${c.cost}</b><span>${esc(c.name)}</span><b>×${counts[c.id]}</b><button data-remove="${c.id}" aria-label="Retirer ${esc(c.name)}"${disabled(busy)}>−</button></div>`).join('');
         $('curve').innerHTML = [1, 2, 3, 4, 5].map(cost => { const n = deck.filter(id => byId[id].cost === cost).length; return `<div title="${n} cartes à ${cost} mana">${n}<i style="height:${n * 4}px"></i>${cost}◆</div>`; }).join('');
-        $('save-deck').disabled = busy || !me || !!validity(); $('starter-deck').disabled = busy;
-        $('catalog-count').textContent = `${total.toLocaleString('fr-FR')} cartes trouvées`;
+        $('save-deck').disabled = busy || !me || !!validity(); $('starter-deck').disabled = busy || !me;
+        $('catalog-count').textContent = `${total.toLocaleString('fr-FR')} cartes possédées trouvées`;
         $('prev-cards').disabled = offset === 0; $('next-cards').disabled = !more;
         $('page-label').textContent = `Page ${Math.floor(offset / 36) + 1} / ${Math.max(1, Math.ceil(total / 36))}`;
     }
     function lobby() {
         if (room && !room.game && !room.closed) {
-            $('lobby').innerHTML = `<div class="panel waiting"><p class="eyebrow">SALON MULTIJOUEUR</p><h2>Ton adversaire entre en scène…</h2><p>Partage ce code avec un autre joueur connecté.</p><strong class="room-code">${esc(room.code)}</strong><p class="muted">Ce salon attend un deuxième compte. La partie démarrera automatiquement à son arrivée.</p><button data-leave${disabled(busy)}>Fermer le salon</button></div>`; return;
+            $('lobby').innerHTML = `<div class="panel waiting"><p class="eyebrow">SALON MULTIJOUEUR</p><h2>Ton adversaire entre en scène…</h2><p>Partage ce code avec un autre joueur connecté.</p><strong class="room-code">${esc(room.code)}</strong><p class="muted">${room.requiresRestart ? 'Ce salon utilise les anciennes règles. Ferme-le puis recrée-le avec tes cartes.' : 'Ce salon attend un deuxième compte. La partie démarrera automatiquement à son arrivée.'}</p><button data-leave${disabled(busy)}>Fermer le salon</button></div>`; return;
         }
         if (room?.game && room.game.winner === null) { $('lobby').innerHTML = ''; return; }
         $('lobby').innerHTML = `<div class="lobby-grid"><article class="panel"><span class="symbol">✦</span><p class="eyebrow">APPRENDS TES COMBOS</p><h2>Défie le Sensei</h2><p>Un duel contre l’IA pour tester ton deck et maîtriser tes compétences.</p><button class="gold" data-create="solo"${disabled(busy || !me || !!validity())}>Jouer contre l’IA ↗</button></article><article class="panel"><span class="symbol">⚔</span><p class="eyebrow">LE VRAI DUEL</p><h2>Invite un rival</h2><p>Crée un salon privé et partage son code. Deux decks, une seule victoire.</p><button data-create="multi"${disabled(busy || !me || !!validity())}>Créer un salon</button></article><article class="panel"><span class="symbol">⟡</span><p class="eyebrow">TON ADVERSAIRE T’ATTEND</p><h2>Rejoins l’arène</h2><form id="tcg-join-form"><label for="tcg-room-input">Code du salon</label><input id="tcg-room-input" autocomplete="off" spellcheck="false" maxlength="12" minlength="12" pattern="[A-Fa-f0-9]{12}" placeholder="Ex. A12B34C56D78" required><button${disabled(busy || !me || !!validity())}>Rejoindre le duel</button></form></article></div>`;
@@ -64,7 +74,7 @@
         const spec = pending.spec; return spec.target === 'ally' ? side === g.side : spec.target === 'enemy' && side !== g.side;
     }
     function board(side, g) {
-        const player = g.players[side], own = side === g.side, turn = g.active === g.side && g.winner === null;
+        const player = g.players[side], own = side === g.side, turn = g.active === g.side && g.winner === null && !room.requiresRestart;
         return player.board.map(u => {
             const c = byId[u.card], ready = turn && !u.sleep && !u.used && !u.frozen;
             const target = targetable(u, side, g);
@@ -81,8 +91,8 @@
     function battle() {
         const g = room?.game;
         if (!g) { $('battle').innerHTML = ''; return; }
-        const own = g.players[g.side], enemy = g.players[1 - g.side], turn = g.active === g.side && g.winner === null;
-        const result = g.winner === null ? '' : `<div class="result" role="status"><p class="eyebrow">DUEL TERMINÉ</p><h2>${g.winner === 'draw' ? 'Égalité' : g.winner === g.side ? 'Victoire !' : 'Défaite'}</h2><span>Chaque duel apprend quelque chose. Ajuste ton deck et relance une partie.</span></div>`;
+        const own = g.players[g.side], enemy = g.players[1 - g.side], turn = g.active === g.side && g.winner === null && !room.requiresRestart;
+        const result = room.requiresRestart ? '<div class="result">Cette ancienne partie doit être abandonnée puis recréée avec tes cartes possédées.</div>' : g.winner === null ? '' : `<div class="result" role="status"><p class="eyebrow">DUEL TERMINÉ</p><h2>${g.winner === 'draw' ? 'Égalité' : g.winner === g.side ? 'Victoire !' : 'Défaite'}</h2><span>Chaque duel apprend quelque chose. Ajuste ton deck et relance une partie.</span></div>`;
         $('battle').innerHTML = `${result}<div class="match-layout"><div class="table">${hero(enemy, true, g)}<div class="opponent-hand" aria-label="${enemy.handCount} cartes cachées">${Array.from({ length: enemy.handCount }, () => '<span class="card-back" aria-hidden="true">桜</span>').join('')}</div><div class="board">${board(1 - g.side, g)}</div><div class="divider"><span>TOUR ${g.turn} · ${room.mode === 'multi' ? 'DUEL EN LIGNE' : 'ENTRAÎNEMENT'}</span></div><div class="board">${board(g.side, g)}</div>${hero(own, false, g)}<div class="hand-label"><span>TA MAIN · ${own.handCount}/8</span><span>◆ Mana ${own.mana}/${own.maxMana}</span></div><div class="hand">${own.hand.map(h => { const c = byId[h.card]; return cardHtml(c, { selected: pending?.card === h.uid, actions: `<button data-play="${h.uid}"${disabled(busy || !turn || g.phase !== 'main' || own.mana < c.cost || c.kind === 'character' && own.board.length >= 5)}>${c.kind === 'character' ? 'Invoquer' : 'Jouer l’assist'} · ${c.cost}◆</button>` }); }).join('') || '<p class="empty">Ta main est vide. Pioche au prochain tour.</p>'}</div><details class="discards"><summary>Défausses publiques · toi ${own.discard.length} / rival ${enemy.discard.length}</summary><p>Toi : ${own.discard.map(id => esc(byId[id].name)).join(', ') || 'Aucune'}</p><p>Rival : ${enemy.discard.map(id => esc(byId[id].name)).join(', ') || 'Aucune'}</p></details></div><aside class="turn-panel panel"><div><p class="eyebrow">${room.mode === 'multi' ? 'SALON ' + esc(room.code) : 'FACE AU SENSEI'}</p><h2>${g.winner !== null ? 'Duel terminé' : turn ? 'À toi de jouer' : 'Tour adverse'}</h2><ul class="phase-list"><li>01 · Pioche & recharge automatiques</li><li class="${g.phase === 'main' ? 'current' : ''}">02 · Phase principale</li><li class="${g.phase === 'combat' ? 'current' : ''}">03 · Combat</li><li>04 · Fin & effets</li></ul><p class="hint">${pending ? 'Choisis une cible encadrée sur le plateau.' : turn ? 'Invoque, active une compétence ou prépare tes attaques.' : 'Le plateau s’actualise automatiquement.'}</p></div><div>${pending ? '<button data-cancel>Annuler la sélection</button>' : ''}<button class="gold" data-phase="combat"${disabled(busy || !turn || g.phase !== 'main')}>Passer au combat →</button><button data-phase="end"${disabled(busy || !turn)}>Terminer le tour</button><button data-leave class="danger"${disabled(busy)}>${g.winner === null ? 'Abandonner le duel' : 'Fermer le résultat'}</button><p class="muted" style="font-size:11px">Attaque ou compétence : une action par personnage et par tour.</p></div><div class="log" aria-label="Journal de combat"><p class="eyebrow">JOURNAL DU DUEL</p>${[...g.log].reverse().map(l => `<p>${esc(l)}</p>`).join('')}</div></aside></div>`;
     }
     function render() { builder(); lobby(); battle(); }
@@ -97,7 +107,7 @@
     }
     document.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b || !document.getElementById('tab-tcg').contains(b) || b.disabled || busy) return;
-        if (b.dataset.add) { deck.push(b.dataset.add); builder(); lobby(); }
+        if (b.dataset.add && availableCopies(byId[b.dataset.add]) > 0 && deck.length < 20 && deck.filter(id => id === b.dataset.add).length < 2) { deck.push(b.dataset.add); builder(); lobby(); }
         if (b.dataset.remove) { const index = deck.indexOf(b.dataset.remove); if (index >= 0) deck.splice(index, 1); builder(); lobby(); }
         if (b.dataset.create) run(async () => { await saveDeck(); accept((await api('/create', { mode: b.dataset.create })).room); notify('Ta partie est prête.'); });
         if (b.hasAttribute('data-leave')) {
@@ -126,11 +136,11 @@
         $(id).addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const next = (i + (e.key === 'ArrowRight' ? 1 : 2)) % 3; $(tabIds[next]).click(); $(tabIds[next]).focus(); } });
     });
     async function searchCatalog(nextOffset = 0) {
-        const version = ++searchEpoch;
+        const version = ++searchEpoch, account = epoch;
         try {
             const result = await api('/catalog?' + new URLSearchParams({ q: $('search').value, kind: $('kind').value, offset: String(nextOffset) }));
-            if (version !== searchEpoch) return;
-            cards = result.cards; total = result.total; offset = result.offset; more = result.more; builder();
+            if (version !== searchEpoch || account !== epoch) return;
+            cards = result.cards; starter = result.starter; total = result.total; offset = result.offset; more = result.more; builder(); lobby();
         } catch (_) { notify('Recherche indisponible. Réessaie.', true); }
     }
     $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => searchCatalog(), 250); });
@@ -138,19 +148,30 @@
     $('prev-cards').addEventListener('click', () => searchCatalog(Math.max(0, offset - 36)));
     $('next-cards').addEventListener('click', () => searchCatalog(offset + 36));
     $('login').addEventListener('click', () => document.getElementById('acc-login')?.click());
-    $('starter-deck').addEventListener('click', () => { deck = [...starter]; builder(); lobby(); notify('Deck de départ chargé. Sauvegarde pour le conserver.'); });
+    $('starter-deck').addEventListener('click', () => run(async () => {
+        const result = await api('/catalog'); starter = result.starter; deck = [...starter];
+        notify(deck.length === 20 ? 'Deck composé avec tes cartes. Sauvegarde pour le conserver.' : `${deck.length}/20 cartes disponibles : ouvre des boosters pour compléter ton deck.`);
+    }));
     $('save-deck').addEventListener('click', () => run(async () => { await saveDeck(); notify('Deck sauvegardé.'); }));
     async function poll() {
         if (!me || busy || polling || document.hidden || !document.getElementById('tab-tcg').classList.contains('on')) return;
         polling = true; const startEpoch = epoch;
-        try { const value = await api(''); if (busy || startEpoch !== epoch) return; if (value.pseudo !== me) { location.reload(); return; } if (accept(value.room)) { lobby(); battle(); } }
+        const before = deck.map(id => byId[id]?.owned).join(',');
+        try {
+            const value = await api(''); if (busy || startEpoch !== epoch) return;
+            if (value.pseudo !== me) { location.reload(); return; }
+            const changed = accept(value.room), inventoryChanged = before !== deck.map(id => byId[id]?.owned).join(',');
+            if (inventoryChanged) builder();
+            if (changed) battle();
+            if (changed || inventoryChanged) lobby();
+        }
         catch (e) { notify(e.status === 401 ? 'Session expirée. Reconnecte-toi depuis les boosters.' : 'Connexion interrompue : nouvelle tentative automatique…', true); }
         finally { polling = false; }
     }
     async function boot() {
         if (loading) return; loading = true; const startEpoch = epoch;
         try {
-            if (!loaded) {
+            {
                 const catalog = await api('/catalog'); cards = catalog.cards; starter = catalog.starter; deck = [...starter];
                 total = catalog.total; more = catalog.more; loaded = true;
             }
@@ -168,6 +189,6 @@
             const key = user?.pseudo || null;
             if (key !== accountKey) { epoch++; accountKey = key; me = key; pending = null; room = null; saved = []; deck = [...starter]; }
         },
-        open(user) { this.account(user); if (loaded && readyFor === accountKey) { render(); poll(); } else boot(); }
+        open(user) { this.account(user); if (loaded && readyFor === accountKey) { render(); poll(); searchCatalog(); } else boot(); }
     };
 })();

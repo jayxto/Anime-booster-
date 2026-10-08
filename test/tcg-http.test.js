@@ -29,9 +29,19 @@ test('real HTTP: accounts, solo, multi, CSRF, privacy, collection isolation and 
     assert.equal((await fetch(base + '/tcg.html')).status, 200);
     assert.equal((await fetch(base + '/tcg.js')).status, 200);
     assert.equal((await req('/api/tcg')).status, 401);
-    const a = await req('/api/register', { email: 'alice@example.test', pseudo: 'Alice', password: 'test-password' });
-    const b = await req('/api/register', { email: 'bob@example.test', pseudo: 'Bob', password: 'test-password' });
+    const empty = await req('/api/register', { email: 'empty@example.test', pseudo: 'Empty', password: 'test-password' });
+    assert.deepEqual((await req('/api/tcg', undefined, empty.cookie)).value.deck, []);
+    assert.equal((await req('/api/tcg/catalog', undefined, empty.cookie)).value.total, 0);
+    assert.equal((await req('/api/tcg/deck', { deck: C.starter, owned: 999 }, empty.cookie)).status, 400);
+    assert.equal((await req('/api/open', { id: 'infinite' }, empty.cookie)).status, 200);
+    const pulled = (await req('/api/tcg/catalog', undefined, empty.cookie)).value;
+    assert.ok(pulled.total > 0); assert.ok(pulled.cards.every(c => c.owned > 0));
+    // Existing guest import provides the deterministic collection fixture; no production test hooks.
+    const guest = { cards: Object.fromEntries([...C.starter, 'sasuke'].map(id => { const c = C.byId[id]; return [c.anime + '|' + c.name, { n: 2 }]; })) };
+    const a = await req('/api/register', { email: 'alice@example.test', pseudo: 'Alice', password: 'test-password', importGuest: true, guest });
+    const b = await req('/api/register', { email: 'bob@example.test', pseudo: 'Bob', password: 'test-password', importGuest: true, guest });
     assert.equal(a.status, 200); assert.equal(b.status, 200);
+    for (const account of [a, b]) assert.equal((await req('/api/tcg/deck', { deck: C.starter }, account.cookie)).status, 200);
     const baseline = (await req('/api/me', undefined, a.cookie)).value.state;
     assert.equal((await req('/api/tcg/create', { mode: 'solo' }, a.cookie, 'https://evil.example')).status, 403);
     const solo = (await req('/api/tcg/create', { mode: 'solo' }, a.cookie)).value.room;

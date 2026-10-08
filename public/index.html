@@ -235,6 +235,15 @@
 
 <div id="zoom" class="zoom"></div>
 <div id="toast" class="toast"></div>
+<aside id="album-complete-notification" class="album-complete-notification" role="status" aria-live="polite" aria-atomic="true" hidden>
+  <span class="album-complete-trophy" aria-hidden="true">🏆</span>
+  <div class="album-complete-message">
+    <div class="album-complete-heading">ALBUM COMPLÉTÉ !</div>
+    <strong id="album-complete-name"></strong>
+    <span id="album-complete-reward"></span>
+  </div>
+  <button type="button" id="album-complete-close" aria-label="Fermer la notification de l'album">✕</button>
+</aside>
 <script src="vendor/page-flip.browser.js"></script>
 <script src="engine.js"></script>
 <script src="summon.js"></script>

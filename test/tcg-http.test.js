@@ -73,7 +73,8 @@ test('real HTTP: accounts, solo, multi, CSRF, privacy, collection isolation and 
     await setupPlayer(b.cookie);
     const g = (await req('/api/tcg', undefined, a.cookie)).value.room.game;
     assert.equal(g.players[1].hand.length, 0); assert.equal(g.players[0].deck, undefined);
-    const results = await Promise.all([1, 2].map(() => req('/api/tcg/action', { code: multi.code, action: { type: 'end', revision: g.revision } }, a.cookie)));
+    const currentCookie = g.active === 0 ? a.cookie : b.cookie;
+    const results = await Promise.all([1, 2].map(() => req('/api/tcg/action', { code: multi.code, action: { type: 'end', revision: g.revision } }, currentCookie)));
     assert.deepEqual(results.map(r => r.status).sort(), [200, 400]);
     assert.deepEqual((await req('/api/me', undefined, a.cookie)).value.state, baseline);
     assert.equal((await req('/api/me', undefined, a.cookie)).value.state.tcg, undefined);

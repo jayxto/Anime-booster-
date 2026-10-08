@@ -100,3 +100,11 @@
  #tab-tcg .pocket-hand-card{flex-basis:127px}
 }
 @media(prefers-reduced-motion:reduce){#tab-tcg .pocket-hpbar i{transition:none}}
+
+
+/* A form card is visually distinct from a basic fighter in the player's hand. */
+#tab-tcg .pocket-hand-card.transformation{border-color:#ffe18b;background:linear-gradient(155deg,#433052,#231a35);box-shadow:0 0 18px #ffc24b36}
+#tab-tcg .pocket-hand-card.transformation .pocket-hand-art{border:1px solid #ffd66e;box-shadow:0 0 12px #ffd66e3c}
+#tab-tcg .pocket-hand-card.transformation .pocket-hand-art img{filter:saturate(1.24) brightness(1.12)}
+#tab-tcg .pocket-hand-card.transformation .pocket-hand-art span{background:#9b5c1de8;color:#fff4c9}
+#tab-tcg .pocket-evolved{background:linear-gradient(110deg,#ffe289,#f2b547);color:#462754;box-shadow:0 0 12px #f7be5680}

@@ -33,16 +33,26 @@
             try { const current = await api(''); accept(current.room); } catch (_) {}
         } finally { busy = false; render(); }
     }
-    function validity() {
-        if (deck.length !== 20) return `${deck.length}/20 cartes : complète ton deck.`;
-        if (deck.some(id => !byId[id])) return 'Carte inconnue : actualise ton deck.';
-        if (deck.filter(id => byId[id].kind === 'character').length < 12) return 'Ajoute au moins 12 personnages.';
+    function validateSelection(selection) {
+        if (!Array.isArray(selection)) return 'Deck indisponible.';
+        if (selection.length !== 20) return `${selection.length}/20 cartes : il faut 20 cartes pour jouer.`;
+        if (selection.some(id => !byId[id])) return 'Certaines cartes du deck ne sont plus disponibles. Recharge ton deck.';
+        const characters = selection.filter(id => byId[id].kind === 'character').length;
+        if (characters < 12) return `${characters}/12 personnages : ajoute des combattants.`;
         const counts = {};
-        for (const id of deck) {
+        for (const id of selection) {
             counts[id] = (counts[id] || 0) + 1;
-            if (counts[id] > 2 || counts[id] > (owned[id] || 0)) return 'Cartes indisponibles dans ta collection : modifie ton deck.';
+            if (counts[id] > 2 || counts[id] > (owned[id] || 0))
+                return `Tu n’as plus assez d’exemplaires de ${byId[id].name}.`;
         }
         return null;
+    }
+    function validity() { return validateSelection(deck); }
+    function collectionHint() {
+        const available = Object.values(owned).reduce((n, copies) => n + Math.min(2, Number(copies) || 0), 0);
+        const characters = Object.entries(owned).reduce((n, [id, copies]) =>
+            n + (byId[id]?.kind === 'character' ? Math.min(2, Number(copies) || 0) : 0), 0);
+        return `Ta collection TCG compte ${available} carte(s) jouable(s), dont ${characters} personnage(s). Il en faut 20, dont 12 personnages. Ouvre des boosters pour compléter ta collection.`;
     }
     const disabled = condition => condition ? ' disabled' : '';
     function cardHtml(c, { actions = '', unit = null, selected = false, target = false } = {}) {
@@ -68,7 +78,12 @@
             $('lobby').innerHTML = `<div class="panel waiting"><p class="eyebrow">SALON MULTIJOUEUR</p><h2>Ton adversaire entre en scène…</h2><p>Partage ce code avec un autre joueur connecté.</p><strong class="room-code">${esc(room.code)}</strong><p class="muted">Ce salon attend un deuxième compte. La partie démarrera automatiquement à son arrivée.</p><button data-leave${disabled(busy)}>Fermer le salon</button></div>`; return;
         }
         if (room?.game && room.game.winner === null) { $('lobby').innerHTML = ''; return; }
-        $('lobby').innerHTML = `<div class="lobby-grid"><article class="panel"><span class="symbol">✦</span><p class="eyebrow">APPRENDS TES COMBOS</p><h2>Défie le Sensei</h2><p>Un duel contre l’IA pour tester ton deck et maîtriser tes compétences.</p><button class="gold" data-create="solo"${disabled(busy || !me || !!validity())}>Jouer contre l’IA ↗</button></article><article class="panel"><span class="symbol">⚔</span><p class="eyebrow">LE VRAI DUEL</p><h2>Invite un rival</h2><p>Crée un salon privé et partage son code. Deux decks, une seule victoire.</p><button data-create="multi"${disabled(busy || !me || !!validity())}>Créer un salon</button></article><article class="panel"><span class="symbol">⟡</span><p class="eyebrow">TON ADVERSAIRE T’ATTEND</p><h2>Rejoins l’arène</h2><form id="tcg-join-form"><label for="tcg-room-input">Code du salon</label><input id="tcg-room-input" autocomplete="off" spellcheck="false" maxlength="12" minlength="12" pattern="[A-Fa-f0-9]{12}" placeholder="Ex. A12B34C56D78" required><button${disabled(busy || !me || !!validity())}>Rejoindre le duel</button></form></article></div>`;
+        const problem = validity();
+        const recommended = !validateSelection(starter);
+        const advice = !me ? 'Connecte-toi pour jouer.' :
+            problem ? recommended ? 'Ton deck actuel est incomplet. Un deck conseillé valide sera chargé automatiquement lors de la création.' :
+                problem + ' ' + collectionHint() : 'Ton deck est prêt !';
+        $('lobby').innerHTML = `<div class="tcg-lobby-advice" role="status">${esc(advice)}${problem && me ? ' <button type="button" data-open-deck>Voir mon deck</button>' : ''}</div><div class="lobby-grid"><article class="panel"><span class="symbol">✦</span><p class="eyebrow">APPRENDS TES COMBOS</p><h2>Défie le Sensei</h2><p>Un duel contre l’IA pour tester ton deck et maîtriser tes compétences.</p><button class="gold" data-create="solo"${disabled(busy || !me)}>Jouer contre l’IA ↗</button></article><article class="panel"><span class="symbol">⚔</span><p class="eyebrow">LE VRAI DUEL</p><h2>Invite un rival</h2><p>Crée un salon privé et partage son code. Deux decks, une seule victoire.</p><button data-create="multi"${disabled(busy || !me)}>Créer un salon</button></article><article class="panel"><span class="symbol">⟡</span><p class="eyebrow">TON ADVERSAIRE T’ATTEND</p><h2>Rejoins l’arène</h2><form id="tcg-join-form"><label for="tcg-room-input">Code du salon</label><input id="tcg-room-input" autocomplete="off" spellcheck="false" maxlength="12" minlength="12" pattern="[A-Fa-f0-9]{12}" placeholder="Ex. A12B34C56D78" required><button${disabled(busy || !me)}>Rejoindre le duel</button></form></article></div>`;
     }
     function targetable(unit, side, g) {
         if (!pending) return false;
@@ -105,6 +120,19 @@
     }
     function render() { builder(); lobby(); battle(); }
     async function saveDeck() { const issue = validity(); if (issue) throw new Error(issue); await api('/deck', { deck }); saved = [...deck]; }
+    async function prepareDeckForMatch() {
+        const issue = validity();
+        if (issue) {
+            const suggestionIssue = validateSelection(starter);
+            if (suggestionIssue) {
+                $('deck-tab').click();
+                throw new Error('Impossible de démarrer le duel : ' + issue + ' ' + collectionHint());
+            }
+            deck = [...starter];
+            notify('Ton deck conseillé a été chargé automatiquement.');
+        }
+        await saveDeck();
+    }
     function move(action) {
         run(async () => { const result = await api('/action', { code: room.code, action: { ...action, revision: room.game.revision } }); accept(result.room); pending = null; notify('Action résolue.'); });
     }
@@ -117,7 +145,15 @@
         const b = e.target.closest('button'); if (!b || !document.getElementById('tab-tcg').contains(b) || b.disabled || busy) return;
         if (b.dataset.add) { const id = b.dataset.add; if (deck.filter(x => x === id).length >= Math.min(2, owned[id] || 0) || deck.length >= 20) return; deck.push(id); builder(); lobby(); }
         if (b.dataset.remove) { const index = deck.indexOf(b.dataset.remove); if (index >= 0) deck.splice(index, 1); builder(); lobby(); }
-        if (b.dataset.create) run(async () => { await saveDeck(); accept((await api('/create', { mode: b.dataset.create })).room); notify('Ta partie est prête.'); });
+        if (b.hasAttribute('data-open-deck')) { $('deck-tab').click(); return; }
+        if (b.dataset.create) {
+            const mode = b.dataset.create;
+            run(async () => {
+                await prepareDeckForMatch();
+                accept((await api('/create', { mode })).room);
+                notify(mode === 'multi' ? 'Salon créé ! Partage le code avec ton adversaire.' : 'Ton duel contre le Sensei est prêt.');
+            });
+        }
         if (b.hasAttribute('data-leave')) {
             if (room?.game?.winner === null && !window.confirm('Abandonner ce duel ? Ton adversaire remportera la partie.')) return;
             run(async () => { accept((await api('/leave', { code: room.code })).room); notify('Salon quitté.'); });
@@ -136,7 +172,7 @@
     });
     document.addEventListener('submit', e => {
         if (e.target.id !== 'tcg-join-form') return; e.preventDefault(); const code = $('room-input').value;
-        run(async () => { await saveDeck(); accept((await api('/join', { code })).room); notify('Duel rejoint.'); });
+        run(async () => { await prepareDeckForMatch(); accept((await api('/join', { code })).room); notify('Duel rejoint.'); });
     });
     const panels = ['arena', 'builder', 'rules'], tabIds = ['arena-tab', 'deck-tab', 'rules-tab'];
     tabIds.forEach((id, i) => {

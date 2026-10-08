@@ -67,7 +67,7 @@ test('KO awards points and requires a bench replacement', () => {
     assert.equal(s.players[0].points, 1);
     assert.equal(s.players[1].active, null);
     assert.equal(s.players[1].bench.length, 1);
-    assert.throws(() => act(s, 1, { type: 'end' }), /remplaçant/);
+    assert.throws(() => act(s, 1, { type: 'end' }), /banc/);
     s = act(s, 1, { type: 'promote', index: 0 });
     assert.ok(s.players[1].active);
     assert.equal(s.players[1].bench.length, 0);

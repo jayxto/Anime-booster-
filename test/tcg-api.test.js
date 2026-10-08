@@ -118,7 +118,7 @@ test('only booster-owned cards are valid, including the true copy count', async 
     assert.equal((await call('POST /api/tcg/deck', player, { deck: C.starter })).deck.length, 20);
     // A rare version of the same character counts as another playable copy.
     delete player.state.cards['naruto|Naruto Uzumaki'];
-    player.state.cards['naruto|Naruto Uzumaki|secrete'] = { n: 2 };
+    player.state.cards['naruto|Naruto Uzumaki|ombre'] = { n: 2 };
     const inventory = C.ownedCounts(player.state);
     assert.equal(inventory.naruto, 2);
     assert.equal((await call('POST /api/tcg/create', player, { mode: 'solo' })).room.mode, 'solo');

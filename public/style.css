@@ -366,3 +366,43 @@ nav button { position: relative; }
 @media (prefers-reduced-motion: reduce) {
   .card.big-rar { animation: none !important; }
 }
+
+
+/* Notification indépendante du toast : succès d'un classeur à 100 %. */
+.album-complete-notification {
+  position: fixed; top: 22px; right: 22px; z-index: 250;
+  display: flex; align-items: center; gap: 14px;
+  width: min(420px, calc(100vw - 32px)); padding: 20px 42px 20px 18px;
+  background: linear-gradient(132deg, #342246 0%, #171126 65%, #29202f 100%);
+  border: 2px solid #ffd976; border-radius: 16px; color: #fff8df;
+  box-shadow: 0 12px 45px #0009, 0 0 36px #ffca4955, inset 0 0 18px #ffd35516;
+  transform: translateX(calc(100% + 50px)); opacity: 0; pointer-events: none;
+  transition: transform .32s cubic-bezier(.2,.9,.3,1), opacity .22s ease;
+  overflow: hidden; isolation: isolate;
+}
+.album-complete-notification[hidden] { display: none; }
+.album-complete-notification.on { transform: translateX(0); opacity: 1; pointer-events: auto; }
+.album-complete-notification::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: linear-gradient(90deg,#ffc45b,#fff4b0,#ffb700); z-index: -1;
+}
+.album-complete-trophy { flex: none; font-size: 43px; filter: drop-shadow(0 2px 12px #ffbd4a99); }
+.album-complete-message { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.album-complete-heading { color: #ffe087; font: 900 17px/1.2 system-ui, sans-serif; letter-spacing: 1.2px; text-shadow: 0 0 16px #ffb70055; }
+.album-complete-message strong { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.album-complete-message span { color: #e5d6b7; font-size: 12px; line-height: 1.45; }
+#album-complete-close {
+  position: absolute; top: 9px; right: 10px; width: 26px; height: 26px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: #dec8a5;
+  cursor: pointer; font-size: 16px; line-height: 26px; text-align: center;
+}
+#album-complete-close:hover, #album-complete-close:focus-visible { background: #ffffff22; color: white; }
+@media (max-width: 600px) {
+  .album-complete-notification { top: 12px; right: 16px; padding: 16px 38px 16px 13px; gap: 10px; }
+  .album-complete-trophy { font-size: 34px; }
+  .album-complete-heading { font-size: 14px; }
+  .album-complete-message strong { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .album-complete-notification { transition: none; }
+}

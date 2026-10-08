@@ -138,8 +138,12 @@ function render({ game:g, cards, isBusy, action }) {
     const el = $('tcg-battle');
     if (!el) return;
     el.innerHTML = '<div class="pocket-wrap">' + victory(g) +
-        (g.timed ? '<div class="pocket-timers" aria-live="off"><strong id="pocket-turn-clock">⏳ 01:30</strong>' +
-            '<span id="pocket-player-clock">Toi : 20:00</span><span id="pocket-rival-clock">Adversaire : 20:00</span></div>' : '') +
+        (g.timed && g.phase === 'main' && g.winner === null
+            ? '<div class="pocket-timers" aria-live="off"><strong id="pocket-turn-clock">⏳ 01:30</strong>' +
+                '<span id="pocket-player-clock">Toi : 20:00</span><span id="pocket-rival-clock">Adversaire : 20:00</span></div>'
+            : g.timed ? '<div class="pocket-timers">' +
+                (g.phase === 'setup' ? '⏳ Les chronomètres démarrent après le placement des deux joueurs.' :
+                    '⏳ Chronomètres arrêtés — match terminé.') + '</div>' : '') +
         '<div class="pocket-board">' +
         '<div class="pocket-zone opponent"><div class="pocket-header"><b>⚔ ' + esc(foe.name) +
         '</b><strong>🏆 ' + foe.points + '/3</strong><small>Deck ' + foe.deckCount + '</small></div>' +

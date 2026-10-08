@@ -3,7 +3,8 @@
     'use strict';
     const $ = id => document.getElementById('tcg-' + id);
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    let cards = [], byId = {}, starter = [], deck = [], saved = [], room = null, me = null, busy = false, pending = null, timer, epoch = 0, polling = false;
+    let cards = [], byId = {}, starter = [], deck = [], saved = [], owned = {}, room = null, me = null, busy = false, pending = null, timer, epoch = 0, polling = false;
+    let hpChange = null;
     let loaded = false, loading = false, searchEpoch = 0, searchTimer, total = 0, offset = 0, more = false, accountKey = null, readyFor;
     const notify = (text, error = false) => { $('notice').textContent = text; $('notice').className = error ? 'error' : ''; };
     async function api(path, body) {
@@ -15,6 +16,11 @@
     }
     function accept(next) {
         const changed = room?.code !== next?.code || room?.game?.revision !== next?.game?.revision || room?.closed !== next?.closed;
+        hpChange = null;
+        if (room?.code === next?.code && room?.game && next?.game && room.game.revision !== next.game.revision) {
+            const previous = room.game.players, current = next.game.players;
+            hpChange = current.map((p, i) => p.hp - previous[i].hp);
+        }
         room = next; if (changed) pending = null; return changed;
     }
     async function run(fn) {
@@ -29,7 +35,13 @@
     }
     function validity() {
         if (deck.length !== 20) return `${deck.length}/20 cartes : complète ton deck.`;
+        if (deck.some(id => !byId[id])) return 'Carte inconnue : actualise ton deck.';
         if (deck.filter(id => byId[id].kind === 'character').length < 12) return 'Ajoute au moins 12 personnages.';
+        const counts = {};
+        for (const id of deck) {
+            counts[id] = (counts[id] || 0) + 1;
+            if (counts[id] > 2 || counts[id] > (owned[id] || 0)) return 'Cartes indisponibles dans ta collection : modifie ton deck.';
+        }
         return null;
     }
     const disabled = condition => condition ? ' disabled' : '';
@@ -38,15 +50,15 @@
         return `<article class="tcg-card ${c.kind} ${selected ? 'selected' : ''} ${target ? 'targetable' : ''}"><div class="portrait">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span class="cost" title="Coût de mana">${c.cost}</span></div><div class="card-body"><p class="franchise">${esc(c.franchise)} · ${c.kind === 'assist' ? 'Assist' : 'Personnage'}</p><h3>${esc(unit?.token ? 'Clone de Naruto' : c.name)}</h3>${c.kind === 'character' ? `<div class="stats"><span title="Attaque">⚔ ${unit ? unit.attack : c.attack}</span><span title="Points de vie">♥ ${unit ? unit.hp + '/' + unit.maxHp : c.health}</span></div><p class="ability"><span class="${c.source === 'profile' ? 'profile' : 'signature'}">${c.source === 'profile' ? 'Profil : ' + esc(c.role) : 'Technique signature'}</span><br><b>${esc(c.skill.name)} · ${c.skill.cost} mana</b><br>${esc(c.skill.text)}</p>` : `<p class="ability">${esc(c.text)}</p>`}</div>${status ? `<div class="status">${esc(status)}</div>` : ''}${actions ? `<div class="card-actions">${actions}</div>` : ''}</article>`;
     }
     function builder() {
-        const deckCards = [...new Set(deck)].map(id => byId[id]);
+        const deckCards = [...new Set(deck)].map(id => byId[id]).filter(Boolean);
         const counts = Object.fromEntries([...cards, ...deckCards].map(c => [c.id, deck.filter(id => id === c.id).length]));
         const filtered = cards;
-        $('catalog').innerHTML = filtered.length ? filtered.map(c => cardHtml(c, { actions: `<button data-remove="${c.id}" aria-label="Retirer ${esc(c.name)}"${disabled(busy || !counts[c.id])}>−</button><span>${counts[c.id]} / 2</span><button data-add="${c.id}" aria-label="Ajouter ${esc(c.name)}"${disabled(busy || counts[c.id] >= 2 || deck.length >= 20)}>+</button>` })).join('') : '<p class="empty">Aucune carte trouvée.</p>';
+        $('catalog').innerHTML = filtered.length ? filtered.map(c => cardHtml(c, { actions: `<button data-remove="${c.id}" aria-label="Retirer ${esc(c.name)}"${disabled(busy || !counts[c.id])}>−</button><span>${counts[c.id] || 0} / ${Math.min(2, owned[c.id] || 0)}</span><button data-add="${c.id}" aria-label="Ajouter ${esc(c.name)}"${disabled(busy || (counts[c.id] || 0) >= Math.min(2, owned[c.id] || 0) || deck.length >= 20)}>+</button>` })).join('') : '<p class="empty">Aucune carte possédée trouvée. Ouvre des boosters pour enrichir ta collection !</p>';
         $('deck-count').textContent = `${deck.length}/20`;
-        $('deck-valid').textContent = validity() || `${deck.filter(id => byId[id].kind === 'character').length} personnages · Deck valide${JSON.stringify(deck) !== JSON.stringify(saved) ? ' · Non sauvegardé' : ' · Sauvegardé'}`;
+        $('deck-valid').textContent = validity() || `${deck.filter(id => byId[id]?.kind === 'character').length} personnages · Deck valide${JSON.stringify(deck) !== JSON.stringify(saved) ? ' · Non sauvegardé' : ' · Sauvegardé'}`;
         $('deck-list').innerHTML = deckCards.map(c => `<div class="deck-row"><b>${c.cost}</b><span>${esc(c.name)}</span><b>×${counts[c.id]}</b><button data-remove="${c.id}" aria-label="Retirer ${esc(c.name)}"${disabled(busy)}>−</button></div>`).join('');
-        $('curve').innerHTML = [1, 2, 3, 4, 5].map(cost => { const n = deck.filter(id => byId[id].cost === cost).length; return `<div title="${n} cartes à ${cost} mana">${n}<i style="height:${n * 4}px"></i>${cost}◆</div>`; }).join('');
-        $('save-deck').disabled = busy || !me || !!validity(); $('starter-deck').disabled = busy;
+        $('curve').innerHTML = [1, 2, 3, 4, 5].map(cost => { const n = deck.filter(id => byId[id]?.cost === cost).length; return `<div title="${n} cartes à ${cost} mana">${n}<i style="height:${n * 4}px"></i>${cost}◆</div>`; }).join('');
+        $('save-deck').disabled = busy || !me || !!validity(); $('starter-deck').disabled = busy || !me || !starter.length;
         $('catalog-count').textContent = `${total.toLocaleString('fr-FR')} cartes trouvées`;
         $('prev-cards').disabled = offset === 0; $('next-cards').disabled = !more;
         $('page-label').textContent = `Page ${Math.floor(offset / 36) + 1} / ${Math.max(1, Math.ceil(total / 36))}`;
@@ -76,13 +88,18 @@
     }
     function hero(p, enemy, g) {
         const target = enemy && pending?.type === 'attack' && !p.board.some(u => u.guard);
-        return `<div class="hero-row"><div class="hero"><div class="avatar">${enemy ? '敵' : '桜'}</div><div><strong>${esc(p.name)}</strong><small>${enemy ? 'Adversaire' : 'Ton équipe'} · ${p.deckCount} en pioche</small></div></div><div><span class="hp">♥ ${p.hp}/30</span><br><span class="mana">◆ ${p.mana}/${p.maxMana} mana</span></div>${target ? `<button data-target="hero"${disabled(busy)}>Cibler le héros</button>` : ''}</div>`;
+        const side = enemy ? 1 - g.side : g.side;
+        const delta = hpChange?.[side] || 0;
+        const remaining = Math.max(0, p.hp);
+        return `<div class="hero-row ${delta < 0 ? 'hero-hit' : ''}"><div class="hero"><div class="avatar">${enemy ? '敵' : '桜'}</div><div><strong>${esc(p.name)}</strong><small>${enemy ? 'Adversaire' : 'Ton équipe'} · ${p.deckCount} en pioche</small></div></div><div class="hero-health"><span class="hp" aria-label="${remaining} points de vie sur 30">♥ ${remaining}/30</span>${delta ? `<span class="hp-delta ${delta > 0 ? 'healed' : ''}">${delta > 0 ? '+' : ''}${delta} PV</span>` : ''}<div class="hp-track" role="progressbar" aria-label="Points de vie de ${esc(p.name)}" aria-valuemin="0" aria-valuemax="30" aria-valuenow="${remaining}"><span style="width:${Math.min(100, remaining / 30 * 100)}%"></span></div><span class="mana">◆ ${p.mana}/${p.maxMana} mana</span></div>${target ? `<button data-target="hero" class="gold"${disabled(busy)}>⚔ Attaquer le héros</button>` : ''}</div>`;
     }
     function battle() {
         const g = room?.game;
         if (!g) { $('battle').innerHTML = ''; return; }
         const own = g.players[g.side], enemy = g.players[1 - g.side], turn = g.active === g.side && g.winner === null;
-        const result = g.winner === null ? '' : `<div class="result" role="status"><p class="eyebrow">DUEL TERMINÉ</p><h2>${g.winner === 'draw' ? 'Égalité' : g.winner === g.side ? 'Victoire !' : 'Défaite'}</h2><span>Chaque duel apprend quelque chose. Ajuste ton deck et relance une partie.</span></div>`;
+        const won = g.winner !== null && g.winner === g.side;
+        const victoryParticles = won ? `<div class="tcg-confetti" aria-hidden="true">${Array.from({ length: 32 }, (_, i) => `<i style="--n:${i};--delay:${(i * 7) % 13 * .11}s"></i>`).join('')}</div>` : '';
+        const result = g.winner === null ? '' : `<div class="result ${won ? 'tcg-victory' : ''}" role="status">${victoryParticles}<p class="eyebrow">${won ? '🏆 VICTOIRE ROYALE 🏆' : 'DUEL TERMINÉ'}</p><h2>${g.winner === 'draw' ? 'Égalité' : won ? 'VICTOIRE !' : 'Défaite'}</h2><span>${won ? 'Ton deck a triomphé !' : 'Ajuste ton deck et relance une partie.'}</span></div>`;
         $('battle').innerHTML = `${result}<div class="match-layout"><div class="table">${hero(enemy, true, g)}<div class="opponent-hand" aria-label="${enemy.handCount} cartes cachées">${Array.from({ length: enemy.handCount }, () => '<span class="card-back" aria-hidden="true">桜</span>').join('')}</div><div class="board">${board(1 - g.side, g)}</div><div class="divider"><span>TOUR ${g.turn} · ${room.mode === 'multi' ? 'DUEL EN LIGNE' : 'ENTRAÎNEMENT'}</span></div><div class="board">${board(g.side, g)}</div>${hero(own, false, g)}<div class="hand-label"><span>TA MAIN · ${own.handCount}/8</span><span>◆ Mana ${own.mana}/${own.maxMana}</span></div><div class="hand">${own.hand.map(h => { const c = byId[h.card]; return cardHtml(c, { selected: pending?.card === h.uid, actions: `<button data-play="${h.uid}"${disabled(busy || !turn || g.phase !== 'main' || own.mana < c.cost || c.kind === 'character' && own.board.length >= 5)}>${c.kind === 'character' ? 'Invoquer' : 'Jouer l’assist'} · ${c.cost}◆</button>` }); }).join('') || '<p class="empty">Ta main est vide. Pioche au prochain tour.</p>'}</div><details class="discards"><summary>Défausses publiques · toi ${own.discard.length} / rival ${enemy.discard.length}</summary><p>Toi : ${own.discard.map(id => esc(byId[id].name)).join(', ') || 'Aucune'}</p><p>Rival : ${enemy.discard.map(id => esc(byId[id].name)).join(', ') || 'Aucune'}</p></details></div><aside class="turn-panel panel"><div><p class="eyebrow">${room.mode === 'multi' ? 'SALON ' + esc(room.code) : 'FACE AU SENSEI'}</p><h2>${g.winner !== null ? 'Duel terminé' : turn ? 'À toi de jouer' : 'Tour adverse'}</h2><ul class="phase-list"><li>01 · Pioche & recharge automatiques</li><li class="${g.phase === 'main' ? 'current' : ''}">02 · Phase principale</li><li class="${g.phase === 'combat' ? 'current' : ''}">03 · Combat</li><li>04 · Fin & effets</li></ul><p class="hint">${pending ? 'Choisis une cible encadrée sur le plateau.' : turn ? 'Invoque, active une compétence ou prépare tes attaques.' : 'Le plateau s’actualise automatiquement.'}</p></div><div>${pending ? '<button data-cancel>Annuler la sélection</button>' : ''}<button class="gold" data-phase="combat"${disabled(busy || !turn || g.phase !== 'main')}>Passer au combat →</button><button data-phase="end"${disabled(busy || !turn)}>Terminer le tour</button><button data-leave class="danger"${disabled(busy)}>${g.winner === null ? 'Abandonner le duel' : 'Fermer le résultat'}</button><p class="muted" style="font-size:11px">Attaque ou compétence : une action par personnage et par tour.</p></div><div class="log" aria-label="Journal de combat"><p class="eyebrow">JOURNAL DU DUEL</p>${[...g.log].reverse().map(l => `<p>${esc(l)}</p>`).join('')}</div></aside></div>`;
     }
     function render() { builder(); lobby(); battle(); }
@@ -97,7 +114,7 @@
     }
     document.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b || !document.getElementById('tab-tcg').contains(b) || b.disabled || busy) return;
-        if (b.dataset.add) { deck.push(b.dataset.add); builder(); lobby(); }
+        if (b.dataset.add) { const id = b.dataset.add; if (deck.filter(x => x === id).length >= Math.min(2, owned[id] || 0) || deck.length >= 20) return; deck.push(id); builder(); lobby(); }
         if (b.dataset.remove) { const index = deck.indexOf(b.dataset.remove); if (index >= 0) deck.splice(index, 1); builder(); lobby(); }
         if (b.dataset.create) run(async () => { await saveDeck(); accept((await api('/create', { mode: b.dataset.create })).room); notify('Ta partie est prête.'); });
         if (b.hasAttribute('data-leave')) {
@@ -130,7 +147,7 @@
         try {
             const result = await api('/catalog?' + new URLSearchParams({ q: $('search').value, kind: $('kind').value, offset: String(nextOffset) }));
             if (version !== searchEpoch) return;
-            cards = result.cards; total = result.total; offset = result.offset; more = result.more; builder();
+            cards = result.cards; owned = result.owned || owned; total = result.total; offset = result.offset; more = result.more; builder();
         } catch (_) { notify('Recherche indisponible. Réessaie.', true); }
     }
     $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => searchCatalog(), 250); });
@@ -138,24 +155,27 @@
     $('prev-cards').addEventListener('click', () => searchCatalog(Math.max(0, offset - 36)));
     $('next-cards').addEventListener('click', () => searchCatalog(offset + 36));
     $('login').addEventListener('click', () => document.getElementById('acc-login')?.click());
-    $('starter-deck').addEventListener('click', () => { deck = [...starter]; builder(); lobby(); notify('Deck de départ chargé. Sauvegarde pour le conserver.'); });
+    $('starter-deck').addEventListener('click', () => { deck = [...starter]; builder(); lobby(); notify('Deck conseillé basé sur ta collection. Complète-le pour jouer !'); });
     $('save-deck').addEventListener('click', () => run(async () => { await saveDeck(); notify('Deck sauvegardé.'); }));
     async function poll() {
         if (!me || busy || polling || document.hidden || !document.getElementById('tab-tcg').classList.contains('on')) return;
         polling = true; const startEpoch = epoch;
-        try { const value = await api(''); if (busy || startEpoch !== epoch) return; if (value.pseudo !== me) { location.reload(); return; } if (accept(value.room)) { lobby(); battle(); } }
+        try { const value = await api(''); if (busy || startEpoch !== epoch) return; if (value.pseudo !== me) { location.reload(); return; } const oldOwned = JSON.stringify(owned); owned = value.owned || {}; starter = value.suggested || []; if (accept(value.room) || oldOwned !== JSON.stringify(owned)) render(); }
         catch (e) { notify(e.status === 401 ? 'Session expirée. Reconnecte-toi depuis les boosters.' : 'Connexion interrompue : nouvelle tentative automatique…', true); }
         finally { polling = false; }
     }
     async function boot() {
         if (loading) return; loading = true; const startEpoch = epoch;
         try {
-            if (!loaded) {
-                const catalog = await api('/catalog'); cards = catalog.cards; starter = catalog.starter; deck = [...starter];
-                total = catalog.total; more = catalog.more; loaded = true;
+            try {
+                const value = await api(''); if (startEpoch !== epoch) return;
+                me = value.pseudo; deck = [...value.deck]; saved = [...deck]; owned = value.owned || {}; starter = value.suggested || []; accept(value.room);
+                const catalog = await api('/catalog'); if (startEpoch !== epoch) return;
+                cards = catalog.cards; total = catalog.total; more = catalog.more; loaded = true;
+            } catch (e) {
+                if (e.status !== 401) throw e;
+                me = null; deck = []; saved = []; cards = []; owned = {}; starter = []; total = 0; more = false; loaded = false; accept(null);
             }
-            try { const value = await api(''); if (startEpoch !== epoch) return; me = value.pseudo; deck = [...value.deck]; saved = [...deck]; accept(value.room); }
-            catch (e) { if (e.status !== 401) throw e; me = null; deck = [...starter]; saved = []; accept(null); }
             if (startEpoch !== epoch) return;
             readyFor = me; $('guest').hidden = !!me; render(); clearInterval(timer); timer = setInterval(poll, 2500);
         } catch (e) { notify('Impossible de charger l’arène. Rouvre cet onglet pour réessayer.', true); }
@@ -166,7 +186,7 @@
     window.AnimeTCG = {
         account(user) {
             const key = user?.pseudo || null;
-            if (key !== accountKey) { epoch++; accountKey = key; me = key; pending = null; room = null; saved = []; deck = [...starter]; }
+            if (key !== accountKey) { epoch++; accountKey = key; me = key; pending = null; room = null; saved = []; deck = []; cards = []; owned = {}; starter = []; loaded = false; readyFor = null; }
         },
         open(user) { this.account(user); if (loaded && readyFor === accountKey) { render(); poll(); } else boot(); }
     };

@@ -44,7 +44,8 @@ function hand(p, g, cards) {
         const canPlay = allowed && (setup ? isCharacter && (!p.active || p.bench.length < 3)
             : isCharacter ? p.bench.length < 3 : c.kind === 'assist' && !p.supportUsed);
         const target = turn && isForm && [p.active, ...p.bench].find(u =>
-            u && !u.evolved && !u.token && u.card === c.evolvesFrom && u.entered < g.turn);
+            u && !u.evolved && !u.token && u.card === c.evolvesFrom &&
+            g.turn >= g.side + 3 && u.entered < g.turn);
         const canEvolve = !!target;
         const art = c.image ? '<img src="' + esc(c.image) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '';
         return '<div class="pocket-hand-card' + (isForm ? ' transformation' : '') + '"><div class="pocket-hand-art">' + art + '<span>' +

@@ -21,7 +21,7 @@ function mini(unit, player, own, inBench, index, game, cards) {
         buttons += '<button class="gold" data-pocket-action="promote" data-index="' + index + '">Choisir</button>';
     return '<article class="pocket-unit' + (inBench ? ' bench-unit' : '') + (own ? ' mine' : ' rival') + '">' +
         '<div class="pocket-art">' + image + '<span class="pocket-energy">◆ ' + unit.energy + '</span>' +
-        (unit.evolved ? '<span class="pocket-evolved">ÉVEIL ✦</span>' : '') + '</div>' +
+        (unit.evolved ? '<span class="pocket-evolved">TRANSFORMATION ✦</span>' : '') + '</div>' +
         '<div class="pocket-card-info"><strong>' + esc(c.name) + '</strong><b>♥ ' + hp + '/' + max + '</b></div>' +
         '<div class="pocket-hpbar"><i style="width:' + (hp / max * 100) + '%"></i></div>' +
         ((unit.shield || unit.freeze || unit.burn) ? '<div class="pocket-effects">' +
@@ -40,17 +40,20 @@ function hand(p, g, cards) {
         const c = cards[h.card];
         if (!c) return '';
         const isCharacter = c.kind === 'character';
+        const isForm = c.kind === 'evolution';
         const canPlay = allowed && (setup ? isCharacter && (!p.active || p.bench.length < 3)
-            : isCharacter ? p.bench.length < 3 : !p.supportUsed);
-        const canEvolve = turn && isCharacter && p.active && p.active.card === h.card &&
-            !p.active.evolved && !p.active.token && p.active.entered < g.turn;
+            : isCharacter ? p.bench.length < 3 : c.kind === 'assist' && !p.supportUsed);
+        const target = turn && isForm && [p.active, ...p.bench].find(u =>
+            u && !u.evolved && !u.token && u.card === c.evolvesFrom && u.entered < g.turn);
+        const canEvolve = !!target;
         const art = c.image ? '<img src="' + esc(c.image) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '';
-        return '<div class="pocket-hand-card"><div class="pocket-hand-art">' + art + '<span>' +
-            (isCharacter ? 'COMBATTANT' : 'ASSIST') + '</span></div><strong>' + esc(c.name) + '</strong>' +
+        return '<div class="pocket-hand-card' + (isForm ? ' transformation' : '') + '"><div class="pocket-hand-art">' + art + '<span>' +
+            (isForm ? 'TRANSFORMATION' : isCharacter ? 'COMBATTANT' : 'ASSIST') + '</span></div><strong>' + esc(c.name) + '</strong>' +
             '<small>' + esc(isCharacter ? (c.skill?.name || 'Attaque') : c.text) + '</small>' +
             '<div class="pocket-hand-buttons"><button data-pocket-action="play" data-card="' + h.uid + '"' +
-            disabled(busy || !canPlay) + '>' + (setup ? 'Placer' : isCharacter ? 'Banc' : 'Utiliser') + '</button>' +
-            (canEvolve ? '<button class="gold" data-pocket-action="evolve" data-card="' + h.uid + '"' + disabled(busy) + '>Éveil</button>' : '') +
+            disabled(busy || !canPlay) + '>' + (isForm ? 'Forme' : setup ? 'Placer' : isCharacter ? 'Banc' : 'Utiliser') + '</button>' +
+            (canEvolve ? '<button class="gold" data-pocket-action="evolve" data-card="' + h.uid +
+                '" data-target="' + target.uid + '"' + disabled(busy) + '>Transformer ✦</button>' : '') +
             '</div></div>';
     }).join('');
     return '<div class="pocket-hand-title"><strong>TA MAIN · ' + p.handCount + '/8</strong><span>Pioche : ' + p.deckCount + '</span></div>' +
@@ -126,7 +129,10 @@ document.addEventListener('click', event => {
     const button = event.target.closest('[data-pocket-action]');
     if (!button || busy || !currentAction) return;
     const type = button.dataset.pocketAction;
-    if (type === 'play' || type === 'evolve') currentAction({ type, card: Number(button.dataset.card) });
+    if (type === 'play') currentAction({ type, card: Number(button.dataset.card) });
+    else if (type === 'evolve') currentAction({
+        type, card: Number(button.dataset.card), target: Number(button.dataset.target)
+    });
     else if (type === 'energy') currentAction({ type, target: Number(button.dataset.uid) });
     else if (type === 'retreat' || type === 'promote') currentAction({ type, index: Number(button.dataset.index) });
     else if (type === 'attack') currentAction({ type, mode: button.dataset.mode });

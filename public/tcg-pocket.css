@@ -121,3 +121,323 @@
 #tab-tcg .pocket-timers strong{font-weight:900;letter-spacing:.5px;color:#ffe9a3}
 #tab-tcg .pocket-timers span{font-size:12px;font-weight:750;border-radius:15px;padding:5px 10px;background:#19143288}
 @media(max-width:620px){#tab-tcg .pocket-timers{padding:8px;gap:5px}#tab-tcg .pocket-timers span{font-size:10px;padding:4px 8px}}
+
+
+/* ===== ANIME DUEL / CINEMATIC ARENA v3 =====
+   Original anime-card battle look, adaptive from mobile portrait to widescreen. */
+#tab-tcg .pocket-v2{
+  --card-glint:#f9d17c;--night:#070d27;--arcane:#85f6ff;
+  max-width:930px; margin:20px auto 40px;
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  filter:drop-shadow(0 18px 40px #0005);
+}
+#tab-tcg .pocket-v2 .pocket-board{
+  border:3px solid #f7d794;border-radius:22px;
+  background:#0c1840;isolation:isolate;
+  box-shadow:0 0 0 1px #5a3f76,0 0 0 8px #ffffff09,
+   0 25px 70px #000a,0 0 45px #f5cb8a1b;
+}
+#tab-tcg .pocket-v2 .pocket-zone{gap:10px;overflow:hidden}
+#tab-tcg .pocket-v2 .pocket-zone.opponent{
+  background:
+    radial-gradient(ellipse at 75% 10%,#ffd2c579,transparent 48%),
+    radial-gradient(ellipse at 15% 72%,#f79fba70,transparent 50%),
+    linear-gradient(160deg,#632b58 0%,#9e3859 35%,#b84774 61%,#5c326f 100%);
+  padding-top:20px;padding-bottom:22px
+}
+#tab-tcg .pocket-v2 .pocket-zone.player{
+  background:
+    radial-gradient(ellipse at 15% 60%,#66ddff85,transparent 50%),
+    radial-gradient(ellipse at 80% 10%,#b673f661,transparent 48%),
+    linear-gradient(160deg,#1a346e,#0d6f9b 48%,#1a326c);
+  padding-top:22px;padding-bottom:22px
+}
+#tab-tcg .pocket-v2 .pocket-zone::before{
+  content:"";position:absolute;inset:0;opacity:.4;z-index:-1;pointer-events:none;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 48px,#fff1 49px 50px),
+    repeating-linear-gradient(0deg,transparent 0 48px,#fff1 49px 50px),
+    radial-gradient(ellipse at center,#fff3,transparent 70%);
+  mask-image:linear-gradient(90deg,transparent,#fff 16% 84%,transparent)
+}
+#tab-tcg .pocket-v2 .pocket-zone::after{
+  content:"✧";position:absolute;left:4%;top:21%;font-size:100px;
+  color:#ffffff12;text-shadow:0 0 24px #ffffff1a;pointer-events:none;z-index:-1
+}
+#tab-tcg .pocket-v2 .pocket-zone.player::after{left:auto;right:4%;top:32%;transform:rotate(20deg)}
+#tab-tcg .pocket-v2 .pocket-header{
+  width:min(100%,800px);min-height:42px;border-radius:13px;
+  padding:9px 16px;border:1px solid #fff5;
+  background:linear-gradient(120deg,#09112bb9,#2415349c,#070f26c9);
+  box-shadow:0 5px 16px #0004,0 1px 0 #ffffff36 inset;
+  backdrop-filter:blur(9px);font-size:13px
+}
+#tab-tcg .pocket-v2 .pocket-header b{font-size:14px;letter-spacing:.35px}
+#tab-tcg .pocket-v2 .pocket-header strong{color:#ffe9a6;font-size:17px;text-shadow:0 0 13px #f1bd5e4d}
+#tab-tcg .pocket-v2 .pocket-label{
+  font-size:10px;letter-spacing:2.4px;padding:4px 15px;
+  border:1px solid #ffffff45;background:#050b26b2;
+  box-shadow:0 0 13px #fff3
+}
+#tab-tcg .pocket-v2 .pocket-center{
+  min-height:62px;height:auto;display:grid;grid-template-columns:1fr auto 1fr;
+  gap:15px;padding:10px 17px;letter-spacing:1.4px;
+  background:
+   linear-gradient(100deg,#f6dd96,#fffdf3 20%,#c2dcf3 55%,#fff2bf 80%,#f9cf79);
+  border-block:2px solid #fff5;
+  box-shadow:0 4px 28px #fff8,0 -5px 25px #fff8;
+  color:#483454;text-shadow:0 1px #fff;z-index:1;
+}
+#tab-tcg .pocket-v2 .pocket-center>b{
+  border:1px solid #fff9;background:linear-gradient(130deg,#5e396e,#254f89 55%,#733e65);
+  box-shadow:0 3px 13px #241f5b8c,0 0 0 3px #efe0bf;
+  font-size:14px;padding:9px 18px;border-radius:100px;color:white;text-shadow:none
+}
+#tab-tcg .pocket-v2 .pocket-center>small{font-size:10px;text-align:right}
+#tab-tcg .pocket-v2 .pocket-bench{width:min(100%,640px);gap:15px}
+#tab-tcg .pocket-v2 .pocket-active{width:min(270px,77%);min-height:0}
+#tab-tcg .pocket-v2 .pocket-unit{
+  background:linear-gradient(140deg,#10234b,#293457 50%,#121127);
+  border:3px solid #eec47e;border-radius:17px;padding:7px;
+  box-shadow:0 0 0 1px #fff6 inset,0 10px 30px #03051c9c,0 0 30px #ffd79022;
+  transform:translateZ(0);transition:box-shadow .25s,transform .25s;
+}
+#tab-tcg .pocket-v2 .pocket-unit.mine{border-color:#a8f8ff;box-shadow:0 0 0 1px #fff8 inset,0 10px 30px #020c2699,0 0 25px #3fedff4c}
+#tab-tcg .pocket-v2 .pocket-unit.is-transformed{border-color:#ffe69d;box-shadow:0 0 0 2px #fcf0b5 inset,0 0 30px #ffce72a6,0 12px 33px #1b112eaf}
+#tab-tcg .pocket-v2 .pocket-unit.is-transformed .pocket-art::after{
+  content:"";position:absolute;inset:-30%;pointer-events:none;
+  background:linear-gradient(115deg,transparent 30%,#fff9 47%,transparent 62%);
+  animation:pocketFoil 3.7s infinite linear
+}
+#tab-tcg .pocket-v2 .pocket-unit.bench-unit{border-width:2px;border-radius:12px;padding:5px}
+#tab-tcg .pocket-v2 .pocket-art{height:202px;border-radius:11px 11px 5px 5px;background:linear-gradient(160deg,#55416b,#171b4b)}
+#tab-tcg .pocket-v2 .pocket-art>img{object-fit:cover;object-position:center 22%;filter:saturate(1.1) contrast(1.05)}
+#tab-tcg .pocket-v2 .pocket-art::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(0deg,#000b 0%,transparent 35%,#fff2 100%);
+  z-index:1;pointer-events:none
+}
+#tab-tcg .pocket-v2 .bench-unit .pocket-art{height:100px}
+#tab-tcg .pocket-v2 .pocket-card-info{font-size:14px}
+#tab-tcg .pocket-v2 .pocket-card-info>b{font-size:12px;color:#ffddda}
+#tab-tcg .pocket-v2 .pocket-card-class{
+  display:flex;justify-content:space-between;gap:5px;text-transform:uppercase;
+  font-size:8px;letter-spacing:.9px;color:#cbd9ee;margin:3px 2px 6px;
+}
+#tab-tcg .pocket-v2 .pocket-card-class span:last-child{color:#ffdf8a}
+#tab-tcg .pocket-v2 .pocket-hpbar{height:9px;background:#2b183d;box-shadow:0 1px 4px #0008 inset}
+#tab-tcg .pocket-v2 .pocket-hpbar i{background:linear-gradient(90deg,#55eec2,#a6ffae,#f9ed9d);box-shadow:0 0 10px #a7ffb088}
+#tab-tcg .pocket-v2 .pocket-energy{
+  font-size:13px;padding:4px 9px;top:8px;left:8px;z-index:2;
+  background:linear-gradient(135deg,#101634ed,#4543a2f2);
+  border:1px solid #cce2ffb8;border-radius:100px;box-shadow:0 2px 8px #0007;
+  color:#ffe7a2
+}
+#tab-tcg .pocket-v2 .pocket-evolved{z-index:2;top:8px;right:8px}
+#tab-tcg .pocket-v2 .pocket-unit-buttons button{
+  min-height:28px;white-space:normal;line-height:1.25;font-weight:800;border-radius:7px
+}
+#tab-tcg .pocket-v2 .pocket-cardbacks{min-height:45px;align-items:center}
+#tab-tcg .pocket-v2 .pocket-cardback{width:31px;height:43px;border-radius:6px;box-shadow:0 2px 8px #13112a8f}
+#tab-tcg .pocket-v2 .pocket-empty{background:#06112a33;border-color:#ffffff78;border-radius:13px}
+#tab-tcg .pocket-v2 .pocket-bottom{
+  background:linear-gradient(140deg,#10132d,#1e1d40 58%,#0f152d);
+  border:1px solid #7e78a0;border-top:3px solid #c1afdb;
+  border-radius:0 0 19px 19px;box-shadow:0 13px 30px #0006;padding:19px 22px
+}
+#tab-tcg .pocket-v2 .pocket-attack-heading{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  gap:6px;margin-top:9px;color:#f9e3ab;letter-spacing:1.3px;font-size:11px
+}
+#tab-tcg .pocket-v2 .pocket-attack-heading span{font-size:10px;color:#bec6e9;letter-spacing:0}
+#tab-tcg .pocket-v2 .pocket-attacks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+#tab-tcg .pocket-v2 button.pocket-attack{
+  width:100%;display:flex;align-items:center;justify-content:flex-start;
+  min-height:85px;padding:10px;gap:7px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#203e78,#1a254e);
+  border:1px solid #7ca7e6;border-radius:13px;
+  box-shadow:0 5px 12px #0004,0 1px #ffffff23 inset;
+  color:white;transition:transform .16s,box-shadow .16s;
+}
+#tab-tcg .pocket-v2 button.pocket-attack.mode-skill{
+  background:linear-gradient(125deg,#5e346f,#32275e);border-color:#cf92fc
+}
+#tab-tcg .pocket-v2 button.pocket-attack.mode-ultimate{
+  background:linear-gradient(135deg,#86502e,#4b2864 70%,#29204f);
+  border-color:#ffe094;
+  box-shadow:0 0 17px #f5af5835,0 1px #ffe5a249 inset
+}
+#tab-tcg .pocket-v2 .pocket-attack-icon{font-size:23px;flex:none;filter:drop-shadow(0 2px 5px #0006)}
+#tab-tcg .pocket-v2 .pocket-attack-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+#tab-tcg .pocket-v2 .pocket-attack-copy strong{font-size:11px;line-height:1.3}
+#tab-tcg .pocket-v2 .pocket-attack-copy small{font-size:10px;color:#d6dbf5}
+#tab-tcg .pocket-v2 .pocket-attack-cost{position:absolute;top:4px;right:5px;
+ background:#050d2ab8;border:1px solid #ffe1a871;color:#ffe6ab;
+ padding:2px 5px;border-radius:15px;font-size:9px;font-weight:900}
+#tab-tcg .pocket-v2 button.pocket-attack:not(:disabled):hover{
+  transform:translateY(-3px);box-shadow:0 7px 20px #6ed6ff35,0 0 20px #f9d79345
+}
+#tab-tcg .pocket-v2 button.pocket-attack:disabled{opacity:.48;filter:grayscale(.3);cursor:not-allowed}
+#tab-tcg .pocket-v2 .pocket-attach{
+ background:linear-gradient(95deg,#25234e,#413765);border:1px solid #8279b5
+}
+#tab-tcg .pocket-v2 .pocket-hand{padding:5px 3px 18px;gap:12px}
+#tab-tcg .pocket-v2 .pocket-hand-card{
+ background:linear-gradient(145deg,#222044,#0c1537);
+ box-shadow:0 7px 17px #0007;border:2px solid #8f9bd2;border-radius:12px
+}
+#tab-tcg .pocket-v2 .pocket-hand-card:hover{border-color:#b8fcff;transform:translateY(-3px)}
+#tab-tcg .pocket-v2 .pocket-hand-art{height:106px}
+#tab-tcg .pocket-v2 .pocket-hand-buttons button{border-radius:8px}
+#tab-tcg .pocket-v2 .pocket-result{
+ background:radial-gradient(ellipse at top,#6b4c96,#241737 60%);
+ border:2px solid #ffe298;box-shadow:0 0 40px #ffe6a63d;padding:22px
+}
+#tab-tcg .pocket-v2 .pocket-result h2{font-size:clamp(32px,6vw,57px);text-shadow:0 0 19px #fddd8c}
+#tab-tcg .pocket-v2 .pocket-timers{
+ border-color:#fbe0aa;background:linear-gradient(110deg,#141a3c,#38305e,#181c46)
+}
+#tab-tcg .pocket-v2 .pocket-round-info span{border-color:#ffffff3a;background:#ffffff0d}
+
+/* Cinematic attack overlays only appear for authoritative server events. */
+#tab-tcg .pocket-v2 .pocket-fx-scene{
+ position:absolute;inset:0;z-index:12;pointer-events:none;overflow:hidden;
+ --fx-main:#8eeaff;--fx-bright:#f5ffff;--fx-shadow:#28a9ff
+}
+#tab-tcg .pocket-v2 .pocket-fx-scene.fx-fire{--fx-main:#ff7331;--fx-bright:#fff1b0;--fx-shadow:#f3375f}
+#tab-tcg .pocket-v2 .pocket-fx-scene.fx-slash{--fx-main:#ba83ff;--fx-bright:#f7eaff;--fx-shadow:#db57ff}
+#tab-tcg .pocket-v2 .pocket-fx-scene.fx-impact{--fx-main:#fcda8c;--fx-bright:#fff;--fx-shadow:#f5a13a}
+#tab-tcg .pocket-v2 .pocket-fx-scene.fx-transform{--fx-main:#ffe68a;--fx-bright:#fff;--fx-shadow:#ffb347}
+#tab-tcg .pocket-v2 .pocket-fx-vignette{
+ position:absolute;inset:0;opacity:0;
+ background:radial-gradient(ellipse at 50% 45%,transparent 4%,#070821d5 85%);
+ animation:pocketDim 1.65s ease both
+}
+#tab-tcg .pocket-v2 .pocket-fx-projectile{
+ position:absolute;left:50%;top:50%;width:12%;height:37%;
+ border-radius:90px;transform-origin:center bottom;opacity:0;
+ background:radial-gradient(ellipse at 50% 50%,var(--fx-bright),var(--fx-main) 27%,transparent 72%);
+ filter:drop-shadow(0 0 20px var(--fx-main)) drop-shadow(0 0 38px var(--fx-shadow));
+ animation:pocketBeam 1.5s cubic-bezier(.13,.75,.4,1) both
+}
+#tab-tcg .pocket-v2 .pocket-fx-scene.from-player .pocket-fx-projectile{
+ transform:translate(-50%,22%) rotate(0deg) scaleY(0);
+}
+#tab-tcg .pocket-v2 .pocket-fx-scene.from-rival .pocket-fx-projectile{
+ transform-origin:center top;
+ animation-name:pocketBeamRival;
+}
+#tab-tcg .pocket-v2 .pocket-fx-scene.fx-slash .pocket-fx-projectile{
+ width:7%;height:42%;clip-path:polygon(0 50%,100% 0,85% 100%,0 55%);
+}
+#tab-tcg .pocket-v2 .pocket-fx-scene.fx-fire .pocket-fx-projectile{
+ width:24%;background:radial-gradient(ellipse,var(--fx-bright),var(--fx-main) 30%,transparent 75%)
+}
+#tab-tcg .pocket-v2 .pocket-fx-impact{
+ position:absolute;left:50%;top:27%;width:155px;height:155px;
+ display:grid;place-items:center;border-radius:50%;font-size:93px;
+ transform:translate(-50%,-50%) scale(.1);opacity:0;
+ color:var(--fx-bright);
+ text-shadow:0 0 20px var(--fx-main),0 0 70px var(--fx-shadow);
+ background:radial-gradient(circle,#ffffffc7 1%,var(--fx-main) 13%,transparent 67%);
+ animation:pocketExplosion 1.6s both
+}
+#tab-tcg .pocket-v2 .pocket-fx-scene.from-rival .pocket-fx-impact{top:72%}
+#tab-tcg .pocket-v2 .pocket-fx-scene.fx-transform .pocket-fx-impact{top:75%;width:210px;height:210px}
+#tab-tcg .pocket-v2 .pocket-fx-announcement{
+ position:absolute;left:50%;top:49%;width:min(94%,560px);
+ display:flex;flex-direction:column;align-items:center;gap:7px;
+ text-align:center;padding:12px 20px;color:white;opacity:0;
+ text-shadow:0 2px 8px #050821,0 0 25px var(--fx-shadow);
+ background:linear-gradient(90deg,transparent,#030920af 15% 85%,transparent);
+ border-block:1px solid #ffffff57;
+ transform:translate(-50%,-50%) scale(.78);
+ animation:pocketAnnounce 1.7s ease-out both
+}
+#tab-tcg .pocket-v2 .pocket-fx-announcement small{font-size:11px;letter-spacing:4px;color:#ffe5a1;font-weight:900}
+#tab-tcg .pocket-v2 .pocket-fx-announcement strong{
+ font-weight:1000;letter-spacing:1px;font-style:italic;
+ text-transform:uppercase;font-size:clamp(23px,5vw,48px);
+ line-height:1.09;
+}
+#tab-tcg .pocket-v2 .pocket-fx-announcement em{
+ font-size:clamp(17px,3vw,28px);color:var(--fx-bright);
+ font-weight:1000;letter-spacing:1px
+}
+#tab-tcg .pocket-v2 .pocket-board-in-combat{
+ animation:pocketCamera 1.55s cubic-bezier(.2,0,.3,1) both;
+}
+@keyframes pocketDim{0%,100%{opacity:0}18%,80%{opacity:1}}
+@keyframes pocketBeam{
+ 0%,15%{opacity:0;transform:translate(-50%,20%) scaleY(.03)}
+ 29%{opacity:1;transform:translate(-50%,20%) scaleY(.2)}
+ 62%{opacity:1;transform:translate(-50%,-48%) scaleY(1.5)}
+ 79%,100%{opacity:0;transform:translate(-50%,-58%) scaleY(1.9)}
+}
+@keyframes pocketBeamRival{
+ 0%,15%{opacity:0;transform:translate(-50%,-50%) scaleY(.03)}
+ 29%{opacity:1;transform:translate(-50%,-50%) scaleY(.2)}
+ 62%{opacity:1;transform:translate(-50%,32%) scaleY(1.5)}
+ 79%,100%{opacity:0;transform:translate(-50%,38%) scaleY(1.9)}
+}
+@keyframes pocketExplosion{
+ 0%,42%{opacity:0;transform:translate(-50%,-50%) scale(.08)}
+ 55%{opacity:1;transform:translate(-50%,-50%) scale(1.45)}
+ 74%{opacity:.82;transform:translate(-50%,-50%) scale(2.5)}
+ 100%{opacity:0;transform:translate(-50%,-50%) scale(3.6)}
+}
+@keyframes pocketAnnounce{
+ 0%,10%{opacity:0;transform:translate(-50%,-50%) scale(.78)}
+ 28%,72%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+ 100%{opacity:0;transform:translate(-50%,-50%) scale(1.07)}
+}
+@keyframes pocketCamera{
+ 0%,40%,100%{transform:translate(0,0)}
+ 43%,50%,59%,65%{transform:translate(-2px,1px)}
+ 47%,55%,63%{transform:translate(2px,-2px)}
+}
+@keyframes pocketFoil{
+ 0%{transform:translateX(-75%) rotate(11deg)}
+ 100%{transform:translateX(75%) rotate(11deg)}
+}
+@media(max-width:670px){
+ #tab-tcg .pocket-v2{margin:10px -7px 24px}
+ #tab-tcg .pocket-v2 .pocket-board{border-width:2px;border-radius:14px}
+ #tab-tcg .pocket-v2 .pocket-zone.opponent{padding:10px 6px 14px}
+ #tab-tcg .pocket-v2 .pocket-zone.player{padding:13px 6px 13px}
+ #tab-tcg .pocket-v2 .pocket-header{padding:7px 9px;min-height:33px}
+ #tab-tcg .pocket-v2 .pocket-header b{font-size:11px}
+ #tab-tcg .pocket-v2 .pocket-header strong{font-size:13px}
+ #tab-tcg .pocket-v2 .pocket-label{font-size:9px;letter-spacing:1px}
+ #tab-tcg .pocket-v2 .pocket-bench{gap:6px}
+ #tab-tcg .pocket-v2 .pocket-active{width:min(195px,75%)}
+ #tab-tcg .pocket-v2 .pocket-art{height:158px}
+ #tab-tcg .pocket-v2 .bench-unit .pocket-art{height:70px}
+ #tab-tcg .pocket-v2 .pocket-energy{font-size:9px;padding:2px 5px;top:4px;left:4px}
+ #tab-tcg .pocket-v2 .pocket-center{min-height:42px;gap:4px;padding:6px 7px}
+ #tab-tcg .pocket-v2 .pocket-center>span{font-size:8px;letter-spacing:.5px}
+ #tab-tcg .pocket-v2 .pocket-center>b{font-size:10px;padding:6px}
+ #tab-tcg .pocket-v2 .pocket-center>small{font-size:8px}
+ #tab-tcg .pocket-v2 .pocket-card-class{font-size:7px}
+ #tab-tcg .pocket-v2 .pocket-bottom{padding:10px}
+ #tab-tcg .pocket-v2 .pocket-attacks{grid-template-columns:1fr}
+ #tab-tcg .pocket-v2 button.pocket-attack{min-height:55px;padding:8px 10px}
+ #tab-tcg .pocket-v2 .pocket-attack-icon{font-size:19px}
+ #tab-tcg .pocket-v2 .pocket-attack-copy strong{font-size:12px}
+ #tab-tcg .pocket-v2 .pocket-attack-copy small{font-size:10px}
+ #tab-tcg .pocket-v2 .pocket-attack-cost{position:static;font-size:11px}
+ #tab-tcg .pocket-v2 .pocket-fx-impact{width:100px;height:100px;font-size:62px}
+ #tab-tcg .pocket-v2 .pocket-fx-announcement{padding:9px 5px}
+ #tab-tcg .pocket-v2 .pocket-fx-announcement small{letter-spacing:1.4px;font-size:8px}
+ #tab-tcg .pocket-v2 .pocket-fx-announcement strong{font-size:clamp(23px,6vw,34px)}
+}
+@media(prefers-reduced-motion:reduce){
+ #tab-tcg .pocket-v2 .pocket-board-in-combat,
+ #tab-tcg .pocket-v2 .pocket-fx-scene *,
+ #tab-tcg .pocket-v2 .pocket-unit.is-transformed .pocket-art::after{animation:none!important}
+ #tab-tcg .pocket-v2 .pocket-fx-scene{background:#121a33eb}
+ #tab-tcg .pocket-v2 .pocket-fx-vignette,
+ #tab-tcg .pocket-v2 .pocket-fx-projectile,
+ #tab-tcg .pocket-v2 .pocket-fx-impact{display:none}
+ #tab-tcg .pocket-v2 .pocket-fx-announcement{opacity:1;transform:translate(-50%,-50%)}
+}

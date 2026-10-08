@@ -13,7 +13,7 @@ npm test           # moteur TCG, API et intégration HTTP (Node >=18)
 
 Depuis le nouvel onglet **Arène TCG** dans l’interface existante, ou `/#tcg` : connecte-toi avec ton compte existant, prépare ton deck puis joue contre le Sensei ou crée/rejoins un salon privé avec son code. L’en-tête, la navigation, les boosters, les classeurs et les styles existants sont conservés ; les styles TCG sont limités à ce nouvel onglet. Deux comptes distincts sont nécessaires pour le multijoueur. La partie s’actualise toutes les 2,5 secondes et reprend après une déconnexion ou un redémarrage du serveur.
 
-- **Tous les 78 173 personnages du catalogue actuel ont une carte jouable**, avec leur nom, univers et portrait existants, plus 6 assists. Les nouveaux personnages ajoutés à `cards.json` reçoivent automatiquement une carte. Recherche côté serveur et pages de 36 cartes ; seules les définitions nécessaires à la partie sont envoyées avec son état.
+- **Tous les 78 173 personnages du catalogue actuel ont une carte de combat**, avec leur nom, univers et portrait existants, plus 6 assists. Seuls les personnages possédés dans la collection du compte sont proposés dans le deck builder. Les nouveaux personnages ajoutés à `cards.json` reçoivent automatiquement une carte. Recherche côté serveur et pages de 36 cartes ; seules les définitions nécessaires à la partie sont envoyées avec son état.
 - Deck de **20 cartes**, 2 exemplaires maximum et au moins 12 personnages. Recherche, filtres, courbe de mana et sauvegarde dans le compte. Les modifications s’appliquent à la prochaine partie.
 - **30 PV**, 4 cartes de départ, 5 emplacements, main limitée à 8 cartes. Le premier joueur ne pioche pas au premier tour. +1 mana maximum et recharge complète à chaque début de tour, plafond de 10.
 - Phases : pioche/recharge automatiques → principale (invocation, assists, compétences) → combat → fin de tour (brûlures). Les personnages attendent le tour suivant leur arrivée ; chacun choisit une attaque **ou** une compétence par tour.
@@ -23,7 +23,9 @@ Depuis le nouvel onglet **Arène TCG** dans l’interface existante, ou `/#tcg` 
 
 **Compétences :** 12 personnages possèdent des techniques signature définies à la main et 6 assists ont des effets spécifiques. Les autres personnages ont un profil de combat explicite parmi six rôles équilibrés (Duelliste, Gardien, Stratège, Soutien, Combattant, Commandant). Ces compétences génériques ne sont pas présentées comme des techniques officielles de l’anime. Le profil et l’identifiant sont déterministes à partir de l’univers et du nom ; ajouter des personnages ne change pas les anciens decks. Pour enrichir un personnage avec une technique signature, conserver son identifiant publié.
 
-**Format de lancement :** toutes les cartes de combat sont gratuites et disponibles en deux exemplaires, indépendamment de la possession dans les classeurs. Les raretés et finitions n’accordent aucun avantage de combat. Aucun gain/perte de pièces ni de cartes n’est lié aux duels.
+**Collection obligatoire :** un exemplaire actuellement possédé permet d’utiliser un exemplaire dans un deck, avec au maximum deux copies par carte de combat. Les versions normales, spéciales et saisonnières d’un personnage se cumulent ; les brillantes et finitions ne sont pas comptées deux fois. Les formes personnage et assist partagent le même stock. Une carte Duo ne débloque pas deux personnages séparés. Les raretés et finitions n’accordent aucun avantage de combat, et les duels ne consomment pas les cartes.
+
+Le serveur vérifie la collection sauvegardée lors de la sauvegarde du deck, de la création d’une partie et de l’arrivée du deuxième joueur (y compris la collection du créateur du salon). Une fois le duel démarré, son deck validé reste figé jusqu’à la fin, même après une vente ou un échange. Les comptes vides n’ont plus de deck gratuit ; « Composer avec mes cartes » propose uniquement des exemplaires possédés. Il faut 20 cartes de deck dont 12 personnages pour jouer ; le Pack Infini gratuit permet d’en obtenir davantage. Les anciens decks restent éditables avec leurs cartes manquantes signalées. Les anciennes parties créées sans contrôle de collection doivent être quittées et recréées.
 
 ### Stockage et exploitation du TCG
 
@@ -33,7 +35,7 @@ Les decks et le code du salon actif sont conservés dans `state.tcg`. Les salons
 
 Les tests HTTP utilisent un fichier temporaire via `DATA_FILE`, deux comptes fictifs et un port attribué automatiquement ; ils ne touchent pas la base configurée en production. La suite couvre aussi les courses entre deux joueurs, les reprises après redémarrage, les informations privées et l’absence de modification de la collection.
 
-Fichiers TCG : `lib/tcg-catalog.js` (cartes et decks), `lib/tcg-engine.js` (règles pures et IA), `lib/tcg-api.js` (salons et autorisations), `public/index.html`, `tcg.css`, `tcg.js` (onglet intégré), `test/` (tests sans dépendance supplémentaire). `/tcg.html` redirige vers l’onglet intégré. CI sur Node 18 et 22.
+Fichiers TCG : `lib/tcg-catalog.js` (cartes et decks), `lib/tcg-collection.js` (possession et quantités), `lib/tcg-engine.js` (règles pures et IA), `lib/tcg-api.js` (salons et autorisations), `public/index.html`, `tcg.css`, `tcg.js` (onglet intégré), `test/` (tests sans dépendance supplémentaire). `/tcg.html` redirige vers l’onglet intégré. CI sur Node 18 et 22.
 
 ## Comptes et admin
 - On peut jouer **en invité** (partie gardée dans le navigateur) ou **créer un compte** avec son adresse e-mail, un pseudo et un mot de passe.

@@ -279,7 +279,7 @@ function rankOfKey(k) {
 
 /* ---------- API ---------- */
 const API = {
-    ...require('./lib/tcg-api')({ store, data: D, dirty: id => DIRTY.add(id), limited }),
+    ...require('./lib/tcg-api')({ store, data: D, collection: G, getUser: userById, dirty: id => DIRTY.add(id), limited }),
     'GET /api/me': async (req, u) => ({ me: meOf(u), state: u ? publicState(u.state) : null, event: eventInfo() }),
     'GET /api/event': async () => ({ event: eventInfo() }),
 

@@ -3,10 +3,14 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const createApi = require('../lib/tcg-api');
 const C = require('../lib/tcg-catalog');
+const data = require('../public/cards.json');
+const collection = require('../public/engine').create(data);
+const grant = (u, id, n = 2) => { const c = C.byId[id]; u.state.cards[c.anime + '|' + c.name] = { n }; };
 function fixture() {
-    const settings = new Map(), users = [1, 2, 3].map(id => ({ id, pseudo: 'Player' + id, state: {} }));
+    const settings = new Map(), users = [1, 2, 3].map(id => ({ id, pseudo: 'Player' + id, state: { cards: {}, tcg: { deck: [...C.starter], active: null } } }));
+    users.forEach(u => [...C.starter, 'gojo', 'sasuke'].forEach(id => grant(u, id)));
     const store = { getSetting: async k => settings.get(k), setSetting: async (k, v) => { await new Promise(r => setTimeout(r, 2)); settings.set(k, v); } };
-    const options = { store, data: require('../public/cards.json'), dirty() {}, limited: () => false };
+    const options = { store, data, collection, getUser: async id => users.find(u => u.id === id), dirty() {}, limited: () => false };
     const api = createApi(options);
     const call = (path, user = users[0], body = {}) => api[path]({}, user, body);
     return { call, users, settings, options };
@@ -68,12 +72,55 @@ test('server rate limits apply to TCG endpoints', async () => {
 test('catalog pages and related card definitions do not expose opponent hidden cards', async () => {
     const { call, users } = fixture();
     const catalog = await call('GET /api/tcg/catalog');
-    assert.equal(catalog.cards.length, 36); assert.ok(catalog.total > 70000);
+    assert.ok(catalog.cards.length > 0); assert.ok(catalog.cards.every(c => c.owned > 0));
     const generated = C.cards.find(c => c.source === 'profile');
+    grant(users[1], generated.id);
     await call('POST /api/tcg/deck', users[1], { deck: C.starter.map(id => id === 'naruto' ? generated.id : id) });
     const { room } = await call('POST /api/tcg/create', users[0], { mode: 'multi' });
     await call('POST /api/tcg/join', users[1], { code: room.code });
     const host = await call('GET /api/tcg', users[0]);
     assert.equal(host.cards.some(c => c.id === generated.id), false);
     assert.equal((await call('GET /api/tcg', users[1])).cards.some(c => c.id === generated.id), true);
+});
+test('empty accounts receive no starter cards and cannot forge an owned deck', async () => {
+    const { call, users } = fixture(); users[0].state = { cards: {} };
+    assert.deepEqual((await call('GET /api/tcg')).deck, []);
+    assert.equal((await call('GET /api/tcg/catalog')).total, 0);
+    assert.deepEqual((await call('GET /api/tcg/catalog', null)).starter, []);
+    const forged = await call('POST /api/tcg/deck', users[0], { deck: C.starter, owned: { naruto: 100 } });
+    assert.equal(forged.status, 400); assert.match(forged.error, /Collection insuffisante/);
+    users[0].state.tcg.deck = [...C.starter]; // Previously saved unrestricted deck.
+    assert.equal((await call('POST /api/tcg/create', users[0], { mode: 'solo' })).status, 400);
+});
+test('save and launch recheck quantities after collection changes', async () => {
+    const { call, users } = fixture(); grant(users[0], 'naruto', 1);
+    assert.equal((await call('POST /api/tcg/deck', users[0], { deck: C.starter })).status, 400);
+    assert.equal((await call('POST /api/tcg/create', users[0], { mode: 'multi' })).status, 400);
+    const state = await call('GET /api/tcg'); assert.match(state.deckError, /Naruto/);
+    grant(users[0], 'naruto', 2);
+    assert.equal((await call('POST /api/tcg/deck', users[0], { deck: C.starter })).error, undefined);
+    delete users[0].state.cards['naruto|Naruto Uzumaki'];
+    assert.equal((await call('POST /api/tcg/create', users[0], { mode: 'solo' })).status, 400);
+});
+test('joining rechecks both inventories, including the waiting host snapshot', async () => {
+    const { call, users } = fixture();
+    const { room } = await call('POST /api/tcg/create', users[0], { mode: 'multi' });
+    grant(users[0], 'naruto', 1);
+    assert.equal((await call('POST /api/tcg/join', users[1], { code: room.code })).status, 400);
+    assert.equal((await call('GET /api/tcg')).room.waiting, true);
+    grant(users[0], 'naruto', 2); grant(users[1], 'naruto', 1);
+    assert.equal((await call('POST /api/tcg/join', users[1], { code: room.code })).status, 400);
+    grant(users[1], 'naruto', 2);
+    assert.ok((await call('POST /api/tcg/join', users[1], { code: room.code })).room.game);
+    users[0].state.cards = {};
+    // A legitimately started match retains its validated snapshot until completion.
+    assert.equal((await call('POST /api/tcg/action', users[0], { code: room.code, action: { type: 'end', revision: 0 } })).error, undefined);
+});
+test('legacy unrestricted games cannot bypass the new collection rules', async () => {
+    const { call, users, settings } = fixture();
+    const { room } = await call('POST /api/tcg/create', users[0], { mode: 'solo' });
+    delete settings.get('tcg:' + room.code).ownershipVersion;
+    assert.equal((await call('GET /api/tcg')).room.requiresRestart, true);
+    assert.equal((await call('POST /api/tcg/action', users[0], { code: room.code, action: { type: 'end', revision: 0 } })).status, 400);
+    assert.equal((await call('POST /api/tcg/leave', users[0], { code: room.code })).room, null);
 });

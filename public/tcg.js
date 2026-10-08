@@ -45,6 +45,8 @@
             if (counts[id] > 2 || counts[id] > (owned[id] || 0))
                 return `Tu n’as plus assez d’exemplaires de ${byId[id].name}.`;
         }
+        for (const id of selection) if (byId[id].kind === 'evolution' && !counts[byId[id].evolvesFrom])
+            return `Ajoute ${byId[byId[id].evolvesFrom]?.name || 'le combattant de base'} pour utiliser ${byId[id].name}.`;
         return null;
     }
     function validity() { return validateSelection(deck); }
@@ -57,7 +59,7 @@
     const disabled = condition => condition ? ' disabled' : '';
     function cardHtml(c, { actions = '', unit = null, selected = false, target = false } = {}) {
         const status = unit ? [unit.guard && 'Garde', unit.shield && `Bouclier ${unit.shield}`, unit.burn && `Brûlure ${unit.burn}`, (unit.freeze || unit.frozen) && 'Gel', unit.sleep && 'Arrivée', unit.used && 'Épuisé'].filter(Boolean).join(' · ') : c.passive === 'guard' ? 'Garde' : '';
-        return `<article class="tcg-card ${c.kind} ${selected ? 'selected' : ''} ${target ? 'targetable' : ''}"><div class="portrait">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span class="cost" title="Coût de mana">${c.cost}</span></div><div class="card-body"><p class="franchise">${esc(c.franchise)} · ${c.kind === 'assist' ? 'Assist' : 'Personnage'}</p><h3>${esc(unit?.token ? 'Clone de Naruto' : c.name)}</h3>${c.kind === 'character' ? `<div class="stats"><span title="Attaque">⚔ ${unit ? unit.attack : c.attack}</span><span title="Points de vie">♥ ${unit ? unit.hp + '/' + unit.maxHp : c.health}</span></div><p class="ability"><span class="${c.source === 'profile' ? 'profile' : 'signature'}">${c.source === 'profile' ? 'Profil : ' + esc(c.role) : 'Technique signature'}</span><br><b>${esc(c.skill.name)} · ${c.skill.cost} mana</b><br>${esc(c.skill.text)}</p>` : `<p class="ability">${esc(c.text)}</p>`}</div>${status ? `<div class="status">${esc(status)}</div>` : ''}${actions ? `<div class="card-actions">${actions}</div>` : ''}</article>`;
+        return `<article class="tcg-card ${c.kind} ${selected ? 'selected' : ''} ${target ? 'targetable' : ''}"><div class="portrait">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span class="cost" title="Coût de mana">${c.cost}</span></div><div class="card-body"><p class="franchise">${esc(c.franchise)} · ${c.kind === 'assist' ? 'Assist' : c.kind === 'evolution' ? 'Transformation ✦' : 'Personnage'}</p><h3>${esc(unit?.token ? 'Clone de Naruto' : c.name)}</h3>${c.kind !== 'assist' ? `<div class="stats"><span title="Attaque">⚔ ${unit ? unit.attack : c.attack}</span><span title="Points de vie">♥ ${unit ? unit.hp + '/' + unit.maxHp : c.health}</span></div><p class="ability"><span class="${c.source === 'profile' ? 'profile' : 'signature'}">${c.source === 'profile' ? 'Profil : ' + esc(c.role) : c.source === 'transformation' ? 'Forme évoluée : ' + esc(byId[c.evolvesFrom]?.name || '') : 'Technique signature'}</span><br><b>${esc(c.skill.name)} · ${c.skill.cost} mana</b><br>${esc(c.skill.text)}</p>` : `<p class="ability">${esc(c.text)}</p>`}</div>${status ? `<div class="status">${esc(status)}</div>` : ''}${actions ? `<div class="card-actions">${actions}</div>` : ''}</article>`;
     }
     function builder() {
         const deckCards = [...new Set(deck)].map(id => byId[id]).filter(Boolean);

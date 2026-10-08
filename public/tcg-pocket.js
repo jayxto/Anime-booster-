@@ -6,6 +6,31 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;'
 const disabled = yes => yes ? ' disabled' : '';
 let currentAction = null;
 let busy = false;
+let clockInterval = null;
+const asClock = ms => {
+    const seconds = Math.max(0, Math.ceil(ms / 1000));
+    return String(Math.floor(seconds / 60)).padStart(2, '0') + ':' +
+        String(seconds % 60).padStart(2, '0');
+};
+function bindClock(g) {
+    if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+    if (!g.timed || g.phase !== 'main' || g.winner !== null) return;
+    const displayedAt = Date.now();
+    const paint = () => {
+        const turn = document.getElementById('pocket-turn-clock');
+        const mine = document.getElementById('pocket-player-clock');
+        const rival = document.getElementById('pocket-rival-clock');
+        if (!turn || !mine || !rival) { clearInterval(clockInterval); clockInterval = null; return; }
+        const passed = Math.max(0, Date.now() - displayedAt);
+        turn.textContent = '⏳ Tour : ' + asClock((g.turnRemainingMs || 0) - passed);
+        mine.textContent = 'Toi : ' + asClock((g.players[g.side].timeRemainingMs || 0) -
+            (g.active === g.side ? passed : 0));
+        rival.textContent = 'Adversaire : ' + asClock((g.players[1 - g.side].timeRemainingMs || 0) -
+            (g.active !== g.side ? passed : 0));
+    };
+    paint();
+    clockInterval = setInterval(paint, 1000);
+}
 function mini(unit, player, own, inBench, index, game, cards) {
     if (!unit) return '<div class="pocket-empty"><span>＋</span><small>Libre</small></div>';
     const c = cards[unit.card] || { name: unit.card, image: null, attack: 1, cost: 2 };
@@ -112,7 +137,10 @@ function render({ game:g, cards, isBusy, action }) {
         () => '<span class="pocket-cardback">✦</span>').join('');
     const el = $('tcg-battle');
     if (!el) return;
-    el.innerHTML = '<div class="pocket-wrap">' + victory(g) + '<div class="pocket-board">' +
+    el.innerHTML = '<div class="pocket-wrap">' + victory(g) +
+        (g.timed ? '<div class="pocket-timers" aria-live="off"><strong id="pocket-turn-clock">⏳ 01:30</strong>' +
+            '<span id="pocket-player-clock">Toi : 20:00</span><span id="pocket-rival-clock">Adversaire : 20:00</span></div>' : '') +
+        '<div class="pocket-board">' +
         '<div class="pocket-zone opponent"><div class="pocket-header"><b>⚔ ' + esc(foe.name) +
         '</b><strong>🏆 ' + foe.points + '/3</strong><small>Deck ' + foe.deckCount + '</small></div>' +
         '<div class="pocket-cardbacks" aria-label="' + foe.handCount + ' cartes adverses cachées">' + backs + '</div>' +
@@ -135,6 +163,7 @@ function render({ game:g, cards, isBusy, action }) {
         [...g.log].reverse().map(s => '<p>' + esc(s) + '</p>').join('') + '</details>' +
         '<button class="pocket-leave" data-leave' + disabled(busy) + '>' +
         (g.winner === null ? 'Abandonner le duel' : 'Quitter le résultat') + '</button></div></div>';
+    bindClock(g);
 }
 document.addEventListener('click', event => {
     const button = event.target.closest('[data-pocket-action]');

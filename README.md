@@ -1,12 +1,39 @@
 # 🎴 Anime Boosters
 
-Jeu 100 % ouverture de boosters de cartes animé, avec le système de packs d'Anime Game.
+Ouverture de boosters de cartes animé, collection, échanges et **arène TCG Origines**, en solo contre l’IA ou en duel multijoueur privé.
 
 ## Lancer
 ```
 npm install
 npm start          # http://localhost:3000
+npm test           # moteur TCG, API et intégration HTTP (Node >=18)
 ```
+
+## ⚔ Arène TCG Origines
+
+Depuis le nouvel onglet **Arène TCG** dans l’interface existante, ou `/#tcg` : connecte-toi avec ton compte existant, prépare ton deck puis joue contre le Sensei ou crée/rejoins un salon privé avec son code. L’en-tête, la navigation, les boosters, les classeurs et les styles existants sont conservés ; les styles TCG sont limités à ce nouvel onglet. Deux comptes distincts sont nécessaires pour le multijoueur. La partie s’actualise toutes les 2,5 secondes et reprend après une déconnexion ou un redémarrage du serveur.
+
+- **Tous les 78 173 personnages du catalogue actuel ont une carte jouable**, avec leur nom, univers et portrait existants, plus 6 assists. Les nouveaux personnages ajoutés à `cards.json` reçoivent automatiquement une carte. Recherche côté serveur et pages de 36 cartes ; seules les définitions nécessaires à la partie sont envoyées avec son état.
+- Deck de **20 cartes**, 2 exemplaires maximum et au moins 12 personnages. Recherche, filtres, courbe de mana et sauvegarde dans le compte. Les modifications s’appliquent à la prochaine partie.
+- **30 PV**, 4 cartes de départ, 5 emplacements, main limitée à 8 cartes. Le premier joueur ne pioche pas au premier tour. +1 mana maximum et recharge complète à chaque début de tour, plafond de 10.
+- Phases : pioche/recharge automatiques → principale (invocation, assists, compétences) → combat → fin de tour (brûlures). Les personnages attendent le tour suivant leur arrivée ; chacun choisit une attaque **ou** une compétence par tour.
+- Compétences propres aux personnages : Multi-clonage, Chidori, Gum-Gum Gatling, Santoryu, Hiken, Kamehameha, etc. Garde, boucliers, soins, gel, brûlure, pioche, dégâts de zone, riposte simultanée et fatigue quand la pioche est vide.
+- Le serveur valide la session, le participant, le tour, la phase, le mana, la carte en main, la cible, les limites du plateau et la révision de partie. Les requêtes répétées sont refusées. La main adverse et l’ordre des pioches ne sont jamais envoyés au navigateur.
+- Un salon actif par compte, expiration après 24 h, abandon possible même pendant le tour adverse. Sans chronomètre ni matchmaking public. Le créateur commence.
+
+**Compétences :** 12 personnages possèdent des techniques signature définies à la main et 6 assists ont des effets spécifiques. Les autres personnages ont un profil de combat explicite parmi six rôles équilibrés (Duelliste, Gardien, Stratège, Soutien, Combattant, Commandant). Ces compétences génériques ne sont pas présentées comme des techniques officielles de l’anime. Le profil et l’identifiant sont déterministes à partir de l’univers et du nom ; ajouter des personnages ne change pas les anciens decks. Pour enrichir un personnage avec une technique signature, conserver son identifiant publié.
+
+**Format de lancement :** toutes les cartes de combat sont gratuites et disponibles en deux exemplaires, indépendamment de la possession dans les classeurs. Les raretés et finitions n’accordent aucun avantage de combat. Aucun gain/perte de pièces ni de cartes n’est lié aux duels.
+
+### Stockage et exploitation du TCG
+
+Les decks et le code du salon actif sont conservés dans `state.tcg`. Les salons privés sont stockés dans les paramètres existants (`ab_settings` sous Postgres, `settings` dans le fichier JSON) avec une échéance de 24 h. Pas de migration destructive. Le délai de sauvegarde existant des comptes est d’environ 2 secondes ; le stockage fichier ajoute 300 ms. Utiliser Postgres ou un disque persistant en production.
+
+**Une seule instance Node est prise en charge**, comme le cache de comptes existant. Une file d’exécution protège les mutations de salons dans ce processus, y compris pendant les écritures asynchrones. Ne pas activer plusieurs workers/réplicas sans ajouter des transactions/verrous interprocessus et revoir le cache des comptes. Les salons expirés sont refusés ; une purge périodique des paramètres `tcg:*` expirés peut être planifiée pour les longues exploitations.
+
+Les tests HTTP utilisent un fichier temporaire via `DATA_FILE`, deux comptes fictifs et un port attribué automatiquement ; ils ne touchent pas la base configurée en production. La suite couvre aussi les courses entre deux joueurs, les reprises après redémarrage, les informations privées et l’absence de modification de la collection.
+
+Fichiers TCG : `lib/tcg-catalog.js` (cartes et decks), `lib/tcg-engine.js` (règles pures et IA), `lib/tcg-api.js` (salons et autorisations), `public/index.html`, `tcg.css`, `tcg.js` (onglet intégré), `test/` (tests sans dépendance supplémentaire). `/tcg.html` redirige vers l’onglet intégré. CI sur Node 18 et 22.
 
 ## Comptes et admin
 - On peut jouer **en invité** (partie gardée dans le navigateur) ou **créer un compte** avec son adresse e-mail, un pseudo et un mot de passe.

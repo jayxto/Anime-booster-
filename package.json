@@ -4,6 +4,7 @@
   "description": "Jeu d'ouverture de boosters de cartes animé",
   "main": "server.js",
   "scripts": {
+    "test": "node --test",
     "start": "node server.js",
     "fetch": "node tools/fetch-anilist.js 7000",
     "build": "echo \"Cartes déjà prêtes dans public/cards.json (pour les refaire en local : npm run cards)\"",

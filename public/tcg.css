@@ -1,0 +1,170 @@
+#tab-tcg{color-scheme:dark;--bg:#0d0b1a;--panel:#18142e;--line:#3a3170;--ink:#f2efff;--muted:#a39cc8;--gold:#ffb300;--teal:#8ae5cf;--red:#ff96a5}
+#tab-tcg *{box-sizing:border-box}
+#tab-tcg button,#tab-tcg input,#tab-tcg select{font:inherit}
+#tab-tcg button,#tab-tcg .button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 17px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#221c40;cursor:pointer;text-decoration:none;font-weight:600}
+#tab-tcg button:hover:not(:disabled),#tab-tcg .button:hover{border-color:var(--gold);background:#303950}
+#tab-tcg button:disabled{opacity:.42;cursor:not-allowed}
+#tab-tcg button:focus-visible,#tab-tcg a:focus-visible,#tab-tcg input:focus-visible,#tab-tcg select:focus-visible{outline:3px solid var(--teal);outline-offset:3px}
+#tab-tcg .gold{color:#1d2130;background:var(--gold);border-color:var(--gold)}
+#tab-tcg button.gold:hover:not(:disabled){background:#ffdc9d}
+#tab-tcg .muted{color:var(--muted);line-height:1.65}
+#tab-tcg a{color:var(--gold)}
+#tab-tcg [hidden]{display:none!important}
+#tab-tcg .active{color:var(--gold)}
+#tab-tcg .intro{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:32px}
+#tab-tcg .eyebrow{font-size:10px;letter-spacing:2.5px;color:var(--gold);font-weight:700}
+#tab-tcg h1,#tab-tcg h2,#tab-tcg h3{font-family:inherit}
+#tab-tcg h1{font-size:clamp(32px,4vw,54px);letter-spacing:-2px;margin:12px 0}
+#tab-tcg h1 span{color:var(--gold)}
+#tab-tcg .intro p:not(.eyebrow){color:var(--muted);margin:0}
+#tab-tcg .format{font-size:10px;letter-spacing:2px;white-space:nowrap}
+#tab-tcg .format i{color:var(--gold);padding:0 10px}
+#tab-tcg .tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-bottom:18px}
+#tab-tcg .tabs button{border:0;border-radius:0;background:transparent;padding:16px 3px;color:var(--muted)}
+#tab-tcg .tabs button[aria-selected=true]{color:var(--gold);box-shadow:0 2px var(--gold)}
+#tab-tcg #tcg-notice{min-height:24px;color:var(--teal);margin:14px 0}
+#tab-tcg #tcg-notice.error{color:var(--red)}
+#tab-tcg .panel{border:1px solid var(--line);background:linear-gradient(140deg,#2a1f55,#1b1636);border-radius:14px;padding:26px}
+#tab-tcg .lobby-grid{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:20px;margin-bottom:24px}
+#tab-tcg .lobby-grid h2{font-size:24px;margin:14px 0}
+#tab-tcg .lobby-grid p{color:var(--muted);line-height:1.7;min-height:55px}
+#tab-tcg .lobby-grid input{width:100%;margin-bottom:12px}
+#tab-tcg .lobby-grid .symbol{font-size:27px;color:var(--gold)}
+#tab-tcg .lobby-grid button{width:100%}
+#tab-tcg .join-row{display:flex;gap:8px}
+#tab-tcg .join-row input{min-width:0}
+#tab-tcg .waiting{text-align:center;padding:45px}
+#tab-tcg .room-code{display:block;font-size:clamp(22px,4vw,40px);letter-spacing:5px;color:var(--gold);margin:25px 0}
+#tab-tcg .waiting .muted{max-width:500px;margin:15px auto}
+#tab-tcg .match-layout{display:grid;grid-template-columns:minmax(0,1fr) 235px;gap:18px}
+#tab-tcg .table{background:radial-gradient(ellipse at center,#25474360,transparent 65%),#18142e;border:1px solid #3a3170;border-radius:16px;padding:20px;min-width:0;position:relative}
+#tab-tcg .hero-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 3px 18px}
+#tab-tcg .hero{display:flex;gap:12px;align-items:center}
+#tab-tcg .avatar{border:1px solid var(--gold);color:var(--gold);width:43px;height:43px;display:grid;place-items:center;border-radius:50%;font-size:20px}
+#tab-tcg .hero strong{display:block}
+#tab-tcg .hero small{color:var(--muted)}
+#tab-tcg .hp{color:var(--red);font-size:20px;font-weight:700}
+#tab-tcg .mana{color:#9cbaff;font-size:13px}
+#tab-tcg .board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;min-height:206px;padding:10px 0}
+#tab-tcg .slot{border:1px dashed #41554f;border-radius:9px;min-height:190px;display:grid;place-items:center;color:#5a7167;font-size:24px}
+#tab-tcg .divider{display:flex;gap:14px;align-items:center;margin:14px 0}
+#tab-tcg .divider:before,#tab-tcg .divider:after{content:'';height:1px;background:#3a3170;flex:1}
+#tab-tcg .divider span{font-size:10px;letter-spacing:2px;color:var(--gold);white-space:nowrap}
+#tab-tcg .tcg-card{border:1px solid #555b70;border-radius:10px;background:#18142e;overflow:hidden;position:relative;display:flex;flex-direction:column;min-width:0}
+#tab-tcg .tcg-card.assist{border-color:#567d79}
+#tab-tcg .portrait{height:130px;position:relative;background:linear-gradient(135deg,#516279,#202b49);overflow:hidden}
+#tab-tcg .portrait img{width:100%;height:100%;object-fit:cover;object-position:50% 22%;display:block}
+#tab-tcg .portrait:after{content:'';position:absolute;inset:50% 0 0;background:linear-gradient(transparent,#18142e)}
+#tab-tcg .cost{position:absolute;top:7px;left:7px;width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:#193563;border:1px solid #a6c6ff;color:#ddebff;font-weight:700;z-index:1}
+#tab-tcg .card-body{padding:10px;flex:1}
+#tab-tcg .tcg-card h3{font-size:13px;margin:0 0 5px}
+#tab-tcg .tcg-card .franchise{font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+#tab-tcg .tcg-card .ability{font-size:11px;line-height:1.5;color:#bec8da;margin:7px 0}
+#tab-tcg .tcg-card .stats{display:flex;gap:8px;color:var(--gold);font-size:12px;font-weight:700}
+#tab-tcg .tcg-card .stats span:last-child{color:var(--red)}
+#tab-tcg .card-actions{display:flex;gap:4px;padding:0 8px 8px;flex-wrap:wrap}
+#tab-tcg .card-actions button{padding:6px 8px;font-size:10px;flex:1}
+#tab-tcg .tcg-card .status{font-size:10px;color:var(--teal);padding:0 9px 7px;line-height:1.5}
+#tab-tcg .tcg-card.targetable{outline:2px solid var(--teal);outline-offset:1px}
+#tab-tcg .tcg-card.selected{outline:2px solid var(--gold)}
+#tab-tcg .board .portrait{height:90px}
+#tab-tcg .board .ability{display:none}
+#tab-tcg .board .tcg-card h3{font-size:11px}
+#tab-tcg .board .franchise{display:none}
+#tab-tcg .hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}
+#tab-tcg .hand .portrait{height:80px}
+#tab-tcg .hand-label{display:flex;justify-content:space-between;margin:18px 0 10px;color:var(--muted);font-size:12px}
+#tab-tcg .opponent-hand{display:flex;justify-content:center;gap:5px;min-height:34px;margin-bottom:12px}
+#tab-tcg .card-back{width:23px;height:32px;border:1px solid #716346;border-radius:4px;background:repeating-linear-gradient(45deg,#242b40,#242b40 4px,#323449 4px,#323449 5px);color:var(--gold);font-size:12px;display:grid;place-items:center}
+#tab-tcg .turn-panel{padding:20px}
+#tab-tcg .turn-panel h2{font-size:23px;margin:12px 0}
+#tab-tcg .turn-panel button{width:100%;margin-bottom:8px}
+#tab-tcg .phase-list{padding:0;list-style:none;color:var(--muted);font-size:12px;line-height:2.3;margin:18px 0}
+#tab-tcg .phase-list .current{color:var(--teal)}
+#tab-tcg .turn-panel .hint{color:var(--teal);font-size:12px;line-height:1.6;min-height:45px}
+#tab-tcg .log{max-height:300px;overflow:auto;border-top:1px solid var(--line);margin-top:18px;padding-top:12px}
+#tab-tcg .log p{font-size:11px;color:var(--muted);line-height:1.6;padding-bottom:8px;border-bottom:1px solid #ffffff09}
+#tab-tcg .result{background:#344535;border:1px solid var(--gold);border-radius:10px;padding:20px;text-align:center;margin-bottom:20px}
+#tab-tcg .result h2{margin:0 0 8px}
+#tab-tcg .builder-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:26px}
+#tab-tcg .section-title{display:flex;justify-content:space-between;align-items:center;gap:10px}
+#tab-tcg .section-title span{color:var(--muted);font-size:12px}
+#tab-tcg .filters{display:flex;gap:15px;margin:20px 0}
+#tab-tcg .filters label{flex:1;font-size:11px;color:var(--muted)}
+#tab-tcg input,#tab-tcg select{display:block;background:#101729;border:1px solid var(--line);border-radius:7px;padding:12px;color:var(--ink);width:100%;margin-top:6px}
+#tab-tcg .catalog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+#tab-tcg .catalog .card-body{min-height:130px}
+#tab-tcg .catalog .card-actions{align-items:center;justify-content:space-between}
+#tab-tcg .catalog .card-actions button{flex:0;min-width:33px}
+#tab-tcg .deck-panel{position:sticky;top:20px;align-self:start;padding:20px}
+#tab-tcg .deck-panel h2{font-size:21px}
+#tab-tcg #tcg-deck-count{color:var(--gold)}
+#tab-tcg #tcg-deck-valid{font-size:12px;line-height:1.5;color:var(--teal)}
+#tab-tcg .curve{display:flex;align-items:end;gap:8px;height:80px;margin:22px 0}
+#tab-tcg .curve>div{flex:1;text-align:center;font-size:10px;color:var(--muted)}
+#tab-tcg .curve i{display:block;background:#8aaacf;border-radius:3px 3px 0 0;min-height:2px;margin:4px 0}
+#tab-tcg .deck-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}
+#tab-tcg .deck-row span{flex:1}
+#tab-tcg .deck-row b{color:var(--gold)}
+#tab-tcg .deck-row button{padding:2px 7px}
+#tab-tcg .deck-actions{display:flex;gap:8px;margin-top:20px}
+#tab-tcg .deck-actions button{font-size:11px;padding:10px}
+#tab-tcg .deck-panel .muted{font-size:11px}
+#tab-tcg .rules{max-width:1000px}
+#tab-tcg .rules>h2{font-size:36px}
+#tab-tcg .rules-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 40px}
+#tab-tcg .rules p,#tab-tcg .rules dd{color:var(--muted);line-height:1.8}
+#tab-tcg .rules dt{font-weight:700;color:var(--gold);margin-top:18px}
+#tab-tcg .rules dd{margin:5px 0}
+#tab-tcg .danger{color:var(--red)}
+#tab-tcg .empty{color:var(--muted);padding:20px}
+#tab-tcg .discards{font-size:11px;color:var(--muted);line-height:1.7;margin-top:15px}
+@media(min-width:1400px){#tab-tcg .catalog{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:1000px){#tab-tcg .match-layout{grid-template-columns:1fr}
+#tab-tcg .turn-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#tab-tcg .turn-panel .log{grid-column:1/-1;max-height:150px}
+#tab-tcg .builder-layout{grid-template-columns:1fr 260px}
+#tab-tcg .catalog{grid-template-columns:repeat(2,minmax(0,1fr))}
+#tab-tcg .format{display:none}
+#tab-tcg .lobby-grid{gap:10px}
+#tab-tcg .lobby-grid .panel{padding:18px}
+}
+@media(max-width:700px){#tab-tcg .intro{margin-bottom:20px}
+#tab-tcg .intro p:not(.eyebrow){font-size:12px;line-height:1.7}
+#tab-tcg .tabs{gap:20px}
+#tab-tcg .tabs button{font-size:12px}
+#tab-tcg .lobby-grid{grid-template-columns:1fr}
+#tab-tcg .lobby-grid p{min-height:0}
+#tab-tcg .builder-layout{display:flex;flex-direction:column}
+#tab-tcg .deck-panel{position:static;order:-1;width:100%}
+#tab-tcg #tcg-deck-list{max-height:200px;overflow:auto}
+#tab-tcg .catalog{grid-template-columns:repeat(2,minmax(0,1fr))}
+#tab-tcg .table{padding:10px}
+#tab-tcg .board{gap:4px;min-height:170px}
+#tab-tcg .slot{min-height:165px}
+#tab-tcg .board .portrait{height:60px}
+#tab-tcg .board .card-body{padding:5px}
+#tab-tcg .board .tcg-card h3{font-size:9px;overflow-wrap:anywhere}
+#tab-tcg .board .tcg-card .stats{font-size:10px;gap:4px}
+#tab-tcg .board .card-actions{padding:0 3px 5px}
+#tab-tcg .board .card-actions button{font-size:9px;padding:5px 2px}
+#tab-tcg .board .tcg-card .status{font-size:8px;padding:0 4px 4px}
+#tab-tcg .cost{width:22px;height:22px;font-size:12px;top:4px;left:4px}
+#tab-tcg .hero-row{font-size:12px}
+#tab-tcg .avatar{width:30px;height:30px;font-size:15px}
+#tab-tcg .hp{font-size:16px}
+#tab-tcg .hero{gap:7px}
+#tab-tcg .hand{grid-template-columns:repeat(2,minmax(0,1fr))}
+#tab-tcg .rules-grid{grid-template-columns:1fr}
+#tab-tcg .rules>h2{font-size:28px}
+}
+@media(prefers-reduced-motion:no-preference){#tab-tcg button,#tab-tcg .tcg-card{transition:border-color .15s,background .15s}
+#tab-tcg .result{animation:tcg-appear .3s ease-out}
+@keyframes tcg-appear{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+
+#tab-tcg .intro{margin:12px 0 20px}#tab-tcg .intro h2{font-size:26px;margin:10px 0}#tab-tcg button.gold{background:linear-gradient(135deg,#ffb300,#ff3c7a);border:0;color:#1a0f00}#tab-tcg .tabs button[aria-selected=true]{color:var(--txt);background:var(--panel2);box-shadow:none;border-radius:8px}#tab-tcg .tabs{border:0;gap:8px}#tab-tcg .tabs button{padding:9px 14px}#tab-tcg .tcg-card{box-shadow:0 0 12px #b44dff20}
+
+#tab-tcg .pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:20px 0;font-size:12px}#tab-tcg .pagination button{font-size:12px;padding:8px}#tab-tcg .signature{color:var(--gold)}#tab-tcg .profile{color:var(--muted)}
+@media(max-width:700px){#tab-tcg .board{grid-template-columns:repeat(5,minmax(106px,1fr));overflow-x:auto;gap:8px;padding-bottom:12px}#tab-tcg .board .tcg-card h3{font-size:12px}#tab-tcg .board .tcg-card .stats{font-size:12px}#tab-tcg .board .card-actions button{font-size:11px;padding:7px 4px}#tab-tcg .board .tcg-card .status{font-size:10px}#tab-tcg .board .portrait{height:90px}}

@@ -143,7 +143,7 @@ function fileStore(file) {
         async close() { clearTimeout(t); write(); }
     };
 }
-const store = process.env.DATABASE_URL ? pgStore(process.env.DATABASE_URL) : fileStore(path.join(__dirname, 'data', 'db.json'));
+const store = process.env.DATABASE_URL ? pgStore(process.env.DATABASE_URL) : fileStore(process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json'));
 
 /* ---------- joueurs en mémoire (le serveur fait foi pour les pièces et les cartes) ---------- */
 const USERS = new Map(), LOADING = new Map(), DIRTY = new Set();
@@ -223,7 +223,7 @@ function patchOf(S, keys) {
     for (const k of keys || []) p.entries[k] = S.cards[k] || null; // null : la carte est partie (échange)
     return p;
 }
-const publicState = S => { const s = { ...S }; delete s.inbox; return s; };
+const publicState = S => { const s = { ...S }; delete s.inbox; delete s.tcg; return s; };
 function parseAmount(v) {
     if (typeof v === 'number') return v;
     let s = String(v || '').toLowerCase().replace(/[\s  _']/g, '');
@@ -279,6 +279,7 @@ function rankOfKey(k) {
 
 /* ---------- API ---------- */
 const API = {
+    ...require('./lib/tcg-api')({ store, data: D, dirty: id => DIRTY.add(id), limited }),
     'GET /api/me': async (req, u) => ({ me: meOf(u), state: u ? publicState(u.state) : null, event: eventInfo() }),
     'GET /api/event': async () => ({ event: eventInfo() }),
 
@@ -343,7 +344,7 @@ const API = {
 
     'POST /api/reset': async (req, u) => {
         if (!u) return { status: 401, error: 'Connecte-toi.' };
-        u.state = Object.assign(Engine.fresh(), { inbox: u.state.inbox || [] });
+        u.state = Object.assign(Engine.fresh(), { inbox: u.state.inbox || [], ...(u.state.tcg ? { tcg: u.state.tcg } : {}) });
         DIRTY.add(u.id);
         return { state: publicState(u.state) };
     },
@@ -585,7 +586,7 @@ const server = http.createServer(async (req, res) => {
     await store.init();
     const ev = await store.getSetting('event').catch(() => null);
     if (ev && ev.luck > 1) EVENT = ev;
-    server.listen(PORT, () => console.log(`Anime Boosters sur le port ${PORT} — comptes : ${store.kind}${ADMIN_EMAILS.length ? ' — admins : ' + ADMIN_EMAILS.join(', ') : ' — le 1er compte créé sera admin'}`));
+    server.listen(PORT, () => console.log(`Anime Boosters sur le port ${server.address().port} — comptes : ${store.kind}${ADMIN_EMAILS.length ? ' — admins : ' + ADMIN_EMAILS.join(', ') : ' — le 1er compte créé sera admin'}`));
 })().catch(e => { console.error('Démarrage impossible :', e.message); process.exit(1); });
 
 async function stop() { try { await flush(); await store.close(); } catch (_) {} process.exit(0); }

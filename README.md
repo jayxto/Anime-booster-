@@ -1,6 +1,6 @@
 # 🎴 Anime Boosters
 
-Ouverture de boosters de cartes animé, collection, échanges et **arène TCG Origines**, en solo contre l’IA ou en duel multijoueur privé.
+Ouverture de boosters de cartes animé, collection, échanges et **arène Anime Duel TCG**, en solo contre l’IA ou en duel multijoueur privé.
 
 ## Lancer
 ```
@@ -9,16 +9,16 @@ npm start          # http://localhost:3000
 npm test           # moteur TCG, API et intégration HTTP (Node >=18)
 ```
 
-## ⚔ Arène TCG Origines
+## ⚔ Arène Anime Duel TCG
 
 Depuis le nouvel onglet **Arène TCG** dans l’interface existante, ou `/#tcg` : connecte-toi avec ton compte existant, prépare ton deck puis joue contre le Sensei ou crée/rejoins un salon privé avec son code. L’en-tête, la navigation, les boosters, les classeurs et les styles existants sont conservés ; les styles TCG sont limités à ce nouvel onglet. Deux comptes distincts sont nécessaires pour le multijoueur. La partie s’actualise toutes les 2,5 secondes et reprend après une déconnexion ou un redémarrage du serveur.
 
 - **Les personnages du catalogue ont des définitions TCG**, mais le joueur ne peut utiliser que les personnages qu'il possède réellement dans sa collection après ouverture de boosters ou échanges. Les versions de rareté et les finitions du même personnage se cumulent pour la quantité jouable (maximum 2 exemplaires par deck). Les 6 assists suivent les mêmes règles de possession. Recherche paginée sur la collection de l'utilisateur.
 - Deck de **20 cartes**, 2 exemplaires maximum **dans la limite des copies réellement possédées**, et au moins 12 personnages. Recherche, filtres, courbe de mana et sauvegarde dans le compte. Un deck conseillé peut être construit à partir des packs ouverts. Les modifications s’appliquent à la prochaine partie. Vérification serveur à la sauvegarde, à la création du salon et lors de l'entrée dans le salon du deuxième joueur.
-- **30 PV**, 4 cartes de départ, 5 emplacements, main limitée à 8 cartes. Le premier joueur ne pioche pas au premier tour. +1 mana maximum et recharge complète à chaque début de tour, plafond de 10.
-- Phases : pioche/recharge automatiques → principale (invocation, assists, compétences) → combat → fin de tour (brûlures). Les personnages attendent le tour suivant leur arrivée ; chacun choisit une attaque **ou** une compétence par tour.
-- Compétences propres aux personnages : Multi-clonage, Chidori, Gum-Gum Gatling, Santoryu, Hiken, Kamehameha, etc. Garde, boucliers, soins, gel, brûlure, pioche, dégâts de zone, riposte simultanée et fatigue quand la pioche est vide.
-- Le serveur valide la session, le participant, le tour, la phase, le mana, la carte en main, la cible, les limites du plateau et la révision de partie. Les requêtes répétées sont refusées. La main adverse et l’ordre des pioches ne sont jamais envoyés au navigateur.
+- **Format Pocket 1 contre 1 :** main initiale de 5 cartes, un combattant actif et jusqu’à 3 combattants sur le banc. Mise en place avant le premier tour, main plafonnée à 8, pioche d’une carte au début de chaque tour à partir du deuxième.
+- **Énergie :** une énergie à attribuer chaque tour à un personnage actif ou du banc, conservée sur la carte. Chaque attaque/technique exige un coût en énergie ; attaquer termine immédiatement le tour. Échange avec le banc contre une énergie ; au K.O., remplacement obligatoire si disponible. Une carte assist par tour.
+- **K.O. et victoire :** les PV sont portés par les cartes combattantes (pas par un héros à 30 PV). Chaque K.O. donne un point, ou deux pour un personnage éveillé. Premier joueur à 3 points, ou dernier joueur ayant encore un combattant, gagne. Techniques adaptées : Chidori, Hiken, Multi-clonage, Kamehameha, boucliers, gel, brûlure, soin, zone et pioche. Éveil par une deuxième copie du même personnage jouée après le tour d’arrivée (bonus de PV et d’attaque).
+- Le serveur valide la session, le participant, le tour, le placement initial, les cartes en main, l’énergie disponible, les attaques, les limites du banc et la révision de partie. Les requêtes répétées sont refusées. La main adverse et l’ordre des pioches ne sont jamais envoyés au navigateur.
 - Un salon actif par compte, expiration après 24 h, abandon possible même pendant le tour adverse. Sans chronomètre ni matchmaking public. Le créateur commence.
 
 **Compétences :** 12 personnages possèdent des techniques signature définies à la main et 6 assists ont des effets spécifiques. Les autres personnages ont un profil de combat explicite parmi six rôles équilibrés (Duelliste, Gardien, Stratège, Soutien, Combattant, Commandant). Ces compétences génériques ne sont pas présentées comme des techniques officielles de l’anime. Le profil et l’identifiant sont déterministes à partir de l’univers et du nom ; ajouter des personnages ne change pas les anciens decks. Pour enrichir un personnage avec une technique signature, conserver son identifiant publié.
@@ -33,7 +33,7 @@ Les decks et le code du salon actif sont conservés dans `state.tcg`. Les salons
 
 Les tests HTTP utilisent un fichier temporaire via `DATA_FILE`, deux comptes fictifs et un port attribué automatiquement ; ils ne touchent pas la base configurée en production. La suite couvre aussi les courses entre deux joueurs, les reprises après redémarrage, les informations privées et l’absence de modification de la collection.
 
-Fichiers TCG : `lib/tcg-catalog.js` (cartes et decks), `lib/tcg-engine.js` (règles pures et IA), `lib/tcg-api.js` (salons et autorisations), `public/index.html`, `tcg.css`, `tcg.js` (onglet intégré), `test/` (tests sans dépendance supplémentaire). `/tcg.html` redirige vers l’onglet intégré. CI sur Node 18 et 22.
+Fichiers TCG : `lib/tcg-catalog.js` (cartes et decks), `lib/tcg-pocket.js` (nouveau moteur de duel et IA), `lib/tcg-engine.js` (ancien moteur pour les parties déjà ouvertes), `lib/tcg-api.js` (salons et autorisations), `public/index.html`, `tcg-pocket.css` et `tcg-pocket.js` (terrain interactif), `tcg.css` et `tcg.js` (onglet intégré), `test/`. `/tcg.html` redirige vers l’onglet intégré. CI sur Node 18 et 22.
 
 ## Comptes et admin
 - On peut jouer **en invité** (partie gardée dans le navigateur) ou **créer un compte** avec son adresse e-mail, un pseudo et un mot de passe.

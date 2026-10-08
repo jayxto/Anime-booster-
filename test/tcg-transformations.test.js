@@ -3,7 +3,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const C = require('../lib/tcg-catalog');
 const P = require('../lib/tcg-pocket');
-C.initialize(require('../public/cards.json'));
+const Collector = require('../public/engine');
+const data = require('../public/cards.json');
+C.initialize(data);
 
 const forms = ['form-goku-ssj', 'form-vegeta-ssj', 'form-naruto-sage', 'form-luffy-gear5', 'form-ichigo-bankai'];
 const action = (game, side, act) => P.act(game, side, { ...act, revision: game.revision });
@@ -20,6 +22,17 @@ test('only canonical characters have separate, stage-1 transformation definition
         assert.ok(form.image, 'evolution inherits verified character artwork');
     }
     assert.equal(C.cards.some(c => c.kind === 'evolution' && c.evolvesFrom === 'gaara'), false);
+});
+
+test('every evolution can actually be obtained as a Secrète booster pull', () => {
+    const collector = Collector.create(data);
+    for (const id of forms) {
+        const form = C.byId[id];
+        const base = C.byId[form.evolvesFrom];
+        assert.ok(collector.specialList(base.anime, 'secrete').includes(base.name),
+            'Secrète must be a possible pull for ' + form.name);
+        assert.equal(collector.validKey(form.collectorKey), true);
+    }
 });
 
 test('the rare Secrète version unlocks the form, not another duplicate of the base', () => {

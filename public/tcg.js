@@ -96,6 +96,7 @@
     function battle() {
         const g = room?.game;
         if (!g) { $('battle').innerHTML = ''; return; }
+        if (g.version === 2) { window.TCGPocket.render({ game: g, cards: byId, isBusy: busy, action: move }); return; }
         const own = g.players[g.side], enemy = g.players[1 - g.side], turn = g.active === g.side && g.winner === null;
         const won = g.winner !== null && g.winner === g.side;
         const victoryParticles = won ? `<div class="tcg-confetti" aria-hidden="true">${Array.from({ length: 32 }, (_, i) => `<i style="--n:${i};--x:${(i * 37 + 7) % 100}%;--delay:${(i * 7) % 13 * .11}s"></i>`).join('')}</div>` : '';

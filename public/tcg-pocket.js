@@ -50,7 +50,7 @@ function hand(p, g, cards) {
         const art = c.image ? '<img src="' + esc(c.image) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '';
         return '<div class="pocket-hand-card' + (isForm ? ' transformation' : '') + '"><div class="pocket-hand-art">' + art + '<span>' +
             (isForm ? 'TRANSFORMATION' : isCharacter ? 'COMBATTANT' : 'ASSIST') + '</span></div><strong>' + esc(c.name) + '</strong>' +
-            '<small>' + esc(isCharacter ? (c.skill?.name || 'Attaque') : c.text) + '</small>' +
+            '<small>' + esc(isForm ? (c.skill?.name + ' · ' + c.skill?.text) : isCharacter ? (c.skill?.name || 'Attaque') : c.text) + '</small>' +
             '<div class="pocket-hand-buttons"><button data-pocket-action="play" data-card="' + h.uid + '"' +
             disabled(busy || !canPlay) + '>' + (isForm ? 'Forme' : setup ? 'Placer' : isCharacter ? 'Banc' : 'Utiliser') + '</button>' +
             (canEvolve ? '<button class="gold" data-pocket-action="evolve" data-card="' + h.uid +

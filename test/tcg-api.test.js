@@ -64,8 +64,9 @@ test('duplicate requests, out-of-turn moves, and old-match requests cannot advan
     await setupPlayer(call, users[0]); await setupPlayer(call, users[1]);
     const snapshot = (await call('GET /api/tcg', users[0])).room.game;
     const b = { code: room.code, action: { type: 'end', revision: snapshot.revision } };
-    assert.equal((await call('POST /api/tcg/action', users[1], b)).status, 400);
-    const responses = await Promise.all([call('POST /api/tcg/action', users[0], b), call('POST /api/tcg/action', users[0], b)]);
+    const actor = users[snapshot.active], other = users[1 - snapshot.active];
+    assert.equal((await call('POST /api/tcg/action', other, b)).status, 400);
+    const responses = await Promise.all([call('POST /api/tcg/action', actor, b), call('POST /api/tcg/action', actor, b)]);
     assert.equal(responses.filter(r => r.room).length, 1); assert.equal(responses.filter(r => r.status === 400).length, 1);
     assert.equal((await call('GET /api/tcg')).room.game.revision, snapshot.revision + 1);
     await call('POST /api/tcg/leave', users[0], { code: room.code });

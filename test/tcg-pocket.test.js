@@ -31,6 +31,8 @@ test('initial placement uses active + 3-slot bench and protects private hand', (
     s = choose(s, 0);
     assert.equal(s.players[0].ready, true);
     assert.equal(s.phase, 'setup');
+    assert.equal(P.view(s, 1).players[0].active, null, 'opponent setup must be secret');
+    assert.deepEqual(P.view(s, 1).players[0].bench, []);
     assert.throws(() => act(s, 0, { type: 'ready' }), /déjà validé/);
     s = choose(s, 1);
     assert.equal(s.turn, 1);
@@ -46,6 +48,10 @@ test('attach one energy each turn, select attack, deal real card HP and end turn
     const id = s.players[0].active.uid;
     assert.throws(() => act(s, 1, { type: 'end' }), /tour/);
     assert.throws(() => act(s, 0, { type: 'attack', mode: 'basic' }), /énergie/);
+    assert.throws(() => act(s, 0, { type: 'energy', target: id }), /déjà placé/,
+        'the first player cannot attach energy on their opening turn');
+    s = act(s, 0, { type: 'end' });
+    s = act(s, 1, { type: 'end' });
     s = act(s, 0, { type: 'energy', target: id });
     assert.equal(s.players[0].active.energy, 1);
     assert.throws(() => act(s, 0, { type: 'energy', target: id }), /déjà placé/);
@@ -57,7 +63,7 @@ test('attach one energy each turn, select attack, deal real card HP and end turn
     s = act(s, 0, { type: 'attack', mode: 'basic' });
     assert.equal(s.players[1].active.hp, hp - own.attack * 10);
     assert.equal(s.active, 1);
-    assert.equal(s.turn, 2);
+    assert.equal(s.turn, 4);
 });
 test('KO awards points and requires a bench replacement', () => {
     let s = prepared();

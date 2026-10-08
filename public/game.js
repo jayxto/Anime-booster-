@@ -202,6 +202,8 @@ async function buyPack(p) {
 async function startOpen(p) {
     if (busy) return;
     if (p.price && S.coins < p.price) { if (auto) stopAuto('Plus assez de pièces : mode auto arrêté.'); else toast('Pas assez de pièces !'); return; }
+    // A rapid next-pack click must not discard the previous album achievement.
+    if (opened?.cards && !opened.summed) announceCompletedAlbums(opened.rewards);
     busy = true; clearTimeout(autoT);
     const tok = ++openTok;
     $('#opening').classList.add('on'); $('#opening').dataset.pack = tok;

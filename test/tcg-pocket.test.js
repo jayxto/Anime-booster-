@@ -83,22 +83,37 @@ test('three knockout points finish the match and no actions can follow', () => {
     assert.equal(s.phase, 'finished');
     assert.throws(() => act(s, 0, { type: 'end' }), /terminée/);
 });
-test('evolving uses a real copy in hand and grants two points when defeated', () => {
-    let s = prepared();
-    const chosen = s.players[0].active.card;
-    s.turn = 3;
-    s.players[0].hand.push({ uid: ++s.seq, card: chosen });
-    const uid = s.players[0].hand.at(-1).uid;
-    const before = s.players[0].active.hp;
-    s = act(s, 0, { type: 'evolve', card: uid });
-    assert.equal(s.players[0].active.hp, before + 20);
+test('Goku transforms into Super Saiyan only with the owned evolution card after turn one', () => {
+    C.initialize(require('../public/cards.json'));
+    let s = fresh();
+    s.players[0].hand.push({ uid: ++s.seq, card: 'goku' });
+    const baseUid = s.players[0].hand.at(-1).uid;
+    s = act(s, 0, { type: 'play', card: baseUid });
+    s = act(s, 0, { type: 'ready' });
+    s = choose(s, 1);
+    s.players[0].hand.push({ uid: ++s.seq, card: 'form-goku-ssj' });
+    const formUid = s.players[0].hand.at(-1).uid;
+    const target = s.players[0].active.uid;
+    assert.throws(() => act(s, 0, { type: 'evolve', card: formUid, target }), /deuxième tour/);
+    s = act(s, 0, { type: 'end' });
+    s = act(s, 1, { type: 'end' });
+    s.players[0].active.hp -= 20;
+    s.players[0].active.energy = 3;
+    const missingHp = s.players[0].active.maxHp - s.players[0].active.hp;
+    s = act(s, 0, { type: 'evolve', card: formUid, target });
+    assert.equal(s.players[0].active.card, 'form-goku-ssj');
+    assert.equal(s.players[0].active.maxHp, 140);
+    assert.equal(s.players[0].active.hp, 140 - missingHp);
+    assert.equal(s.players[0].active.energy, 3);
     assert.equal(s.players[0].active.evolved, true);
-    assert.throws(() => act(s, 0, { type: 'evolve', card: uid }), /introuvable/);
+    assert.deepEqual(s.players[0].active.evolutionStack, ['goku']);
     s.players[0].active.hp = 1;
     s.players[1].active.energy = 8;
     s = act(s, 0, { type: 'end' });
     s = act(s, 1, { type: 'attack', mode: 'basic' });
     assert.equal(s.players[1].points, 2);
+    assert.ok(s.players[0].discard.includes('goku'));
+    assert.ok(s.players[0].discard.includes('form-goku-ssj'));
 });
 test('AI always uses legal game actions and waits for the human to finish setup', () => {
     let s = fresh();

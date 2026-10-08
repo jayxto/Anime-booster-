@@ -94,7 +94,7 @@ test('server rate limits apply to TCG endpoints', async () => {
     assert.equal((await api['POST /api/tcg/create']({}, users[0], { mode: 'solo' })).status, 429);
 });
 test('catalog pages and related card definitions do not expose opponent hidden cards', async () => {
-    const { call, users } = fixture();
+    const { call, users, settings } = fixture();
     const catalog = await call('GET /api/tcg/catalog');
     assert.equal(catalog.total, 10); assert.equal(catalog.cards.length, 10); assert.ok(catalog.catalogSize > 70000);
     const generated = C.cards.find(c => c.source === 'profile');
@@ -105,6 +105,30 @@ test('catalog pages and related card definitions do not expose opponent hidden c
     const host = await call('GET /api/tcg', users[0]);
     assert.equal(host.cards.some(c => c.id === generated.id), false);
     assert.equal((await call('GET /api/tcg', users[1])).cards.some(c => c.id === generated.id), true);
+    // A participant has placed a special fighter, but the rival cannot learn it before both confirm.
+    const raw = settings.get('tcg:' + room.code).game;
+    const cardUid = ++raw.seq;
+    raw.players[1].hand.push({ uid: cardUid, card: generated.id });
+    const placed = await call('POST /api/tcg/action', users[1],
+        { code: room.code, action: { type: 'play', card: cardUid, revision: raw.revision } });
+    assert.ok(placed.room);
+    const hidden = await call('GET /api/tcg', users[0]);
+    assert.equal(hidden.room.game.players[1].active, null);
+    assert.deepEqual(hidden.room.game.players[1].bench, []);
+    assert.equal(hidden.cards.some(c => c.id === generated.id), false);
+    const guestReady = await call('POST /api/tcg/action', users[1],
+        { code: room.code, action: { type: 'ready', revision: placed.room.game.revision } });
+    assert.ok(guestReady.room);
+    const hostBefore = (await call('GET /api/tcg', users[0])).room.game;
+    const first = hostBefore.players[0].hand.find(h => C.byId[h.card].kind === 'character');
+    const hostPlaced = await call('POST /api/tcg/action', users[0],
+        { code: room.code, action: { type: 'play', card: first.uid, revision: hostBefore.revision } });
+    assert.ok(hostPlaced.room);
+    await call('POST /api/tcg/action', users[0],
+        { code: room.code, action: { type: 'ready', revision: hostPlaced.room.game.revision } });
+    const revealed = await call('GET /api/tcg', users[0]);
+    assert.equal(revealed.room.game.players[1].active.card, generated.id);
+    assert.equal(revealed.cards.some(c => c.id === generated.id), true);
 });
 
 test('only booster-owned cards are valid, including the true copy count', async () => {

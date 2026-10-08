@@ -634,6 +634,7 @@ $('#reset').onclick = async () => {
 /* ---------- compte ---------- */
 let authMode = 'login';
 function renderAccount() {
+    window.AnimeTCG?.account(ME);
     const el = $('#account');
     if (!SERVER) { el.innerHTML = ''; return; }
     el.innerHTML = ME
@@ -1050,6 +1051,7 @@ function showTab(tab) {
     if (tab === 'shop') renderShop();
     if (tab === 'admin') renderAdmin();
     if (tab === 'players') renderPlayers();
+    if (tab === 'tcg') window.AnimeTCG?.open(ME);
 }
 function renderAll() { renderCoins(); renderAccount(); renderEvent(); showTab(currentTab()); }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -1067,6 +1069,7 @@ Promise.all([
     if (m && m.event) setEvent(m.event);
     startPing();
     renderAll();
+    if (location.hash === '#tcg') showTab('tcg');
     booted = true;
 }).catch(() => { $('#packs').textContent = 'Impossible de charger les cartes.'; });
 })();

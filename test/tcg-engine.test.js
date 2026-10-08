@@ -135,3 +135,20 @@ test('AI completes its turn via legal moves, and full games terminate by fatigue
         assert.notEqual(s.winner, null);
     }
 });
+
+test('direct attacks reduce actual hero life from 30 and show damage, never below zero', () => {
+    let s = fresh();
+    s.players[0].board.push({
+        uid: ++s.seq, card: 'zoro', attack: 3, hp: 3, maxHp: 3,
+        guard: false, shield: 0, burn: 0, freeze: 0, frozen: false, sleep: false, used: false
+    });
+    s = act(s, { type: 'combat' });
+    s = act(s, { type: 'attack', unit: s.players[0].board[0].uid, target: 'hero' });
+    assert.equal(s.players[1].hp, 27);
+    assert.ok(s.log.at(-1).includes('3 PV'));
+    s.players[1].hp = 2;
+    s.players[0].board[0].used = false;
+    s = act(s, { type: 'attack', unit: s.players[0].board[0].uid, target: 'hero' });
+    assert.equal(s.players[1].hp, 0);
+    assert.equal(s.winner, 0);
+});

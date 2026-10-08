@@ -201,3 +201,8 @@
 #tab-tcg .tcg-lobby-advice{margin:0 0 15px;padding:12px 15px;border:1px solid #5d4c85;border-radius:10px;background:#231c3b;color:#ebe4ff;display:flex;align-items:center;gap:14px;justify-content:space-between;font-size:12px;line-height:1.5}
 #tab-tcg .tcg-lobby-advice button{flex:none;padding:6px 10px;font-size:11px;color:#ffe4a9;border-color:#a38b56}
 @media(max-width:700px){#tab-tcg .tcg-lobby-advice{flex-wrap:wrap}}
+
+
+#tab-tcg .tcg-card.evolution{border-color:#f5c45d;box-shadow:0 0 0 1px #f9e4a139,0 10px 25px #bb893621}
+#tab-tcg .tcg-card.evolution .portrait{background:linear-gradient(135deg,#ffdc7c25,#9a60c62e)}
+#tab-tcg .tcg-card.evolution .franchise{color:#ffd77c}

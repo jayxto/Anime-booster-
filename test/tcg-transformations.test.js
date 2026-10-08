@@ -58,11 +58,13 @@ test('deck must contain its matching base and genuinely owned form', () => {
 
 test('a character duplicate or a mismatched transformation cannot evolve Gaara', () => {
     let s = P.create([C.starter, C.starter], ['A', 'B'], () => 0);
-    const gaara = s.players[0].hand.find(h => h.card === 'gaara');
-    assert.ok(gaara);
+    // Guarantee Gaara is available regardless of shuffle order.
+    s.players[0].hand.push({ uid: ++s.seq, card: 'gaara' });
+    const gaara = s.players[0].hand.at(-1);
     s = action(s, 0, { type: 'play', card: gaara.uid });
     s = action(s, 0, { type: 'ready' });
-    const other = s.players[1].hand.find(h => C.byId[h.card].kind === 'character');
+    let other = s.players[1].hand.find(h => C.byId[h.card].kind === 'character');
+    if (!other) { s.players[1].hand.push({ uid: ++s.seq, card: 'naruto' }); other = s.players[1].hand.at(-1); }
     s = action(s, 1, { type: 'play', card: other.uid });
     s = action(s, 1, { type: 'ready' });
     s = action(s, 0, { type: 'end' });

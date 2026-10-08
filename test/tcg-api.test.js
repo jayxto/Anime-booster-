@@ -16,6 +16,24 @@ function fixture() {
     const call = (path, user = users[0], body = {}) => api[path]({}, user, body);
     return { call, users, settings, options };
 }
+async function setupPlayer(call, player) {
+    let state = (await call('GET /api/tcg', player)).room.game;
+    const hand = state.players[state.side].hand;
+    const chosen = hand.find(h => C.byId[h.card].kind === 'character');
+    assert.ok(chosen, 'a character must be available in the starting hand');
+    let result = await call('POST /api/tcg/action', player, {
+        code: (await call('GET /api/tcg', player)).room.code,
+        action: { type: 'play', card: chosen.uid, revision: state.revision }
+    });
+    assert.ok(result.room, result.error);
+    state = result.room.game;
+    result = await call('POST /api/tcg/action', player, {
+        code: result.room.code,
+        action: { type: 'ready', revision: state.revision }
+    });
+    assert.ok(result.room, result.error);
+    return result.room.game;
+}
 test('authentication, deck validation and match replacement protection', async () => {
     const { call, users } = fixture();
     assert.equal((await call('GET /api/tcg', null)).status, 401);
@@ -23,10 +41,11 @@ test('authentication, deck validation and match replacement protection', async (
     await call('GET /api/tcg'); assert.deepEqual(users[0].state.tcg.deck, C.starter);
     const { room } = await call('POST /api/tcg/create', users[0], { mode: 'solo' }); assert.equal(room.game.players[1].hand.length, 0);
     assert.equal((await call('POST /api/tcg/create', users[0], { mode: 'multi' })).status, 400);
-    const card = room.game.players[0].hand[0].uid;
-    const rejected = await call('POST /api/tcg/action', users[0], { code: room.code, action: { type: 'play', card, revision: 0, mana: 99 } });
+    assert.equal(room.game.version, 2);
+    const rejected = await call('POST /api/tcg/action', users[0], { code: room.code,
+        action: { type: 'energy', target: 999, revision: room.game.revision } });
     assert.equal(rejected.status, 400);
-    assert.equal((await call('GET /api/tcg')).room.game.revision, 0);
+    assert.equal((await call('GET /api/tcg')).room.game.revision, room.game.revision);
 });
 test('two joiners racing for one seat: only one succeeds, private views remain private', async () => {
     const { call, users } = fixture();
@@ -42,11 +61,13 @@ test('duplicate requests, out-of-turn moves, and old-match requests cannot advan
     const { call, users } = fixture();
     const { room } = await call('POST /api/tcg/create', users[0], { mode: 'multi' });
     await call('POST /api/tcg/join', users[1], { code: room.code });
-    const b = { code: room.code, action: { type: 'end', revision: 0 } };
+    await setupPlayer(call, users[0]); await setupPlayer(call, users[1]);
+    const snapshot = (await call('GET /api/tcg', users[0])).room.game;
+    const b = { code: room.code, action: { type: 'end', revision: snapshot.revision } };
     assert.equal((await call('POST /api/tcg/action', users[1], b)).status, 400);
     const responses = await Promise.all([call('POST /api/tcg/action', users[0], b), call('POST /api/tcg/action', users[0], b)]);
     assert.equal(responses.filter(r => r.room).length, 1); assert.equal(responses.filter(r => r.status === 400).length, 1);
-    assert.equal((await call('GET /api/tcg')).room.game.revision, 1);
+    assert.equal((await call('GET /api/tcg')).room.game.revision, snapshot.revision + 1);
     await call('POST /api/tcg/leave', users[0], { code: room.code });
     assert.equal((await call('GET /api/tcg', users[1])).room.game.winner, 1);
     await call('POST /api/tcg/create', users[0], { mode: 'solo' });

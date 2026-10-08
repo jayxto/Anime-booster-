@@ -248,6 +248,7 @@ function showSummary() {
         + rewardsHtml(opened.rewards);
     el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
     if (opened.rewards && opened.rewards.length) { sfx('coins'); glowPulse('.wallet'); }
+    announceCompletedAlbums(opened.rewards);
 }
 // paliers de classeur passés grâce au pack
 function rewardsHtml(rw) {
@@ -270,7 +271,11 @@ function stopAuto(msg) {
     $('#op-auto').classList.remove('on'); $('#op-auto').textContent = '▶ Auto';
     if (was && msg) toast(msg, 4000);
 }
-function closeOpen() { stopAuto(); openTok++; opened = null; SM.close(); $('#opening').classList.remove('on'); $('#op-god').classList.remove('on'); renderShop(); }
+function closeOpen() {
+    // Still show the achievement if the pack was closed before the summary appeared.
+    if (opened && !opened.summed) announceCompletedAlbums(opened.rewards);
+    stopAuto(); openTok++; opened = null; SM.close(); $('#opening').classList.remove('on'); $('#op-god').classList.remove('on'); renderShop();
+}
 $('#op-flip').onclick = () => SM.revealAll(false);
 $('#op-close').onclick = closeOpen;
 $('#op-again').onclick = nextPack;
@@ -736,6 +741,8 @@ async function reloadState() {
 function tradeNews(inbox, count) {
     const tr = (inbox || []).filter(m => m.trade);
     if (tr.length) {
+        // The other participant can complete an album while we are offline.
+        for (const message of tr) if (message.trade === 'accepted') announceCompletedAlbums(message.rewards);
         const m = tr[tr.length - 1];
         toast(m.trade === 'accepted' ? `✅ ${m.by} a accepté ton échange !` : m.trade === 'refused' ? `❌ ${m.by} a refusé ton échange.` : `⚠️ Ton échange avec ${m.by} est annulé : une carte n’était plus là.`, 5000);
         if (tr.some(x => x.trade === 'accepted')) { sfx('coins'); reloadState(); }
@@ -874,6 +881,7 @@ async function answerTrade(t, act, btn) {
         sfx('coins'); glowPulse('.wallet');
         const rw = (j.rewards || []).reduce((s, r) => s + r.coins, 0);
         toast(`✅ Échange fait avec ${t.from} !${rw ? ` 🏆 Palier de classeur : +${fmt(rw)} 🪙` : ''}`, 4500);
+        announceCompletedAlbums(j.rewards);
         renderMyProfile();
     } else toast(act === 'cancel' ? 'Proposition annulée.' : 'Proposition refusée.');
     renderTrades();
@@ -1033,6 +1041,43 @@ async function setServerLuck(luck, minutes) {
 }
 $('#ev-on').onclick = () => setServerLuck(+$('#ev-luck').value, +$('#ev-min').value);
 $('#ev-off').onclick = () => setServerLuck(1, 0);
+
+/* ---------- notification spéciale : album à 100 % ---------- */
+const completedAlbumsQueue = [];
+let completedAlbumTimer = 0, completedAlbumClosing = false;
+function announceCompletedAlbums(rewards) {
+    for (const reward of rewards || []) {
+        if (reward.pct === 100 && reward.u && reward.name) {
+            completedAlbumsQueue.push({ u: reward.u, name: reward.name, coins: reward.coins });
+        }
+    }
+    showNextCompletedAlbum();
+}
+function showNextCompletedAlbum() {
+    const el = $('#album-complete-notification');
+    if (!el || !el.hidden || completedAlbumClosing || !completedAlbumsQueue.length) return;
+    const achievement = completedAlbumsQueue.shift();
+    $('#album-complete-name').textContent = achievement.name;
+    $('#album-complete-reward').textContent = `100 % des personnages collectionnés · +${fmt(achievement.coins)} 🪙`;
+    el.hidden = false;
+    void el.offsetWidth; // Restart the entrance animation for each completed album.
+    el.classList.add('on');
+    sfx('coins');
+    completedAlbumTimer = setTimeout(dismissCompletedAlbum, 6500);
+}
+function dismissCompletedAlbum() {
+    const el = $('#album-complete-notification');
+    if (!el || el.hidden || completedAlbumClosing) return;
+    clearTimeout(completedAlbumTimer);
+    completedAlbumClosing = true;
+    el.classList.remove('on');
+    setTimeout(() => {
+        el.hidden = true;
+        completedAlbumClosing = false;
+        showNextCompletedAlbum();
+    }, 320);
+}
+$('#album-complete-close').addEventListener('click', dismissCompletedAlbum);
 
 /* ---------- divers ---------- */
 let toastT = 0;

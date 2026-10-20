@@ -1,0 +1,31 @@
+name: Record real booster reveal
+on:
+  push:
+    branches: [video-presentation-streamer-2026]
+    paths:
+      - '.github/workflows/real-pack-reveal.yml'
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci && npm install --no-save playwright@1.56.1 && npx playwright install chromium --with-deps
+      - name: Start isolated version of Anime Boosters
+        run: |
+          nohup env PORT=3000 DATA_FILE=/tmp/streamer-pack-db.json ADMIN_EMAILS=admin@example.test node server.js >/tmp/server.log 2>&1 &
+          for i in $(seq 1 90); do if curl -fsS http://127.0.0.1:3000/api/me >/dev/null; then break; fi; sleep 1; done
+      - name: Record pack opening
+        run: node promo/open-pack.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: anime-streamer-pack-reveal
+          path: promo/open-pack-output/*.webm
+          if-no-files-found: warn
+      - name: Inspect error
+        if: failure()
+        run: tail -n 100 /tmp/server.log || true

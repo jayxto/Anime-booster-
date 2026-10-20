@@ -1,0 +1,69 @@
+name: Record streamer gameplay presentation
+on:
+  push:
+    branches: [video-presentation-streamer-2026]
+    paths:
+      - 'promo/capture.js'
+      - '.github/workflows/streamer-presentation.yml'
+permissions:
+  contents: write
+jobs:
+  video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: video-presentation-streamer-2026
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install game and browser
+        run: |
+          npm ci
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start isolated game server
+        run: |
+          nohup env PORT=3000 DATA_FILE=/tmp/anime-streamer-demo.json ADMIN_EMAILS=administrator@example.test node server.js > /tmp/anime-streamer-server.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000/api/me >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3000/api/me
+      - name: Record actual gameplay with Playwright
+        run: node promo/capture.js
+      - name: Convert silent gameplay to MP4
+        if: always()
+        run: |
+          if test -s promo/output/full-recording.webm; then
+            ffmpeg -y -i promo/output/full-recording.webm -vf "fps=24,scale=1280:720" -c:v libx264 -preset veryfast -crf 25 -pix_fmt yuv420p -movflags +faststart -an promo/output/Anime_Boosters_presentation_streamer.mp4
+          fi
+      - name: Publish video to isolated presentation branch
+        if: always()
+        run: |
+          if test -s promo/output/Anime_Boosters_presentation_streamer.mp4; then
+            mkdir -p promo/final
+            cp promo/output/Anime_Boosters_presentation_streamer.mp4 promo/final/Anime_Boosters_presentation_streamer.mp4
+            cp promo/output/scenes.json promo/final/scenes.json
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add promo/final/Anime_Boosters_presentation_streamer.mp4 promo/final/scenes.json
+            git commit -m "Publish real gameplay video for streamer introduction"
+            git push origin HEAD:video-presentation-streamer-2026
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: anime-boosters-streamer-demo
+          path: |
+            promo/output/Anime_Boosters_presentation_streamer.mp4
+            promo/output/scenes.json
+            promo/output/full-recording.webm
+          if-no-files-found: warn
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          echo "--- Server log ---"
+          tail -n 100 /tmp/anime-streamer-server.log || true
